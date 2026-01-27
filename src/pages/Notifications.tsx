@@ -1,50 +1,66 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Bell, ArrowLeft, Clock, Trash2 } from "lucide-react";
+import { useNavigate, Link } from "react-router-dom";
+import { Bell, ArrowLeft, Clock, Trash2, UserPlus, UserCheck } from "lucide-react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { useNotificationStore } from "@/store/notificationStore";
 import { useToast } from "@/hooks/use-toast";
 import { auth } from "@/firebase";
 import profileIcon from "@/assets/profileicon.png";
+import maleIcon from "@/assets/maleicon.png";
+import femaleIcon from "@/assets/femaleicon.png";
 
 const API_BASE = "http://127.0.0.1:8000";
 
 const Notifications = () => {
   const navigate = useNavigate();
-  const { notifications, markAllAsRead, removeNotification } = useNotificationStore();
+  const { notifications, markAllAsRead, removeNotification, clearAll } = useNotificationStore();
   const { toast } = useToast();
   const [mounted, setMounted] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [serverNotifications, setServerNotifications] = useState<any[]>([]);
 
   useEffect(() => {
     setMounted(true);
-    // Mark all as read when viewing notifications page
     markAllAsRead();
+    loadNotifications();
   }, [markAllAsRead]);
 
-  // Function to delete notification from database
-  const handleDeleteNotification = async (notificationId: string) => {
+  const loadNotifications = async () => {
     try {
-      setDeleting(notificationId);
       const user = auth.currentUser;
       if (!user) return;
 
       const token = await user.getIdToken();
-      const res = await fetch(`${API_BASE}/notifications/${notificationId}`, {
-        method: "DELETE",
+      const res = await fetch(`${API_BASE}/notifications/recent?limit=50`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
       if (res.ok) {
-        // Remove from local store
-        removeNotification(notificationId);
-        toast({
-          description: "Notification removed",
-          duration: 1500,
-        });
-      } else {
-        throw new Error("Failed to delete");
+        const data = await res.json();
+        setServerNotifications(data.notifications || []);
       }
+    } catch (error) {
+      console.error("Failed to load notifications:", error);
+    }
+  };
+
+  const handleDeleteNotification = async (id: string) => {
+    try {
+      setDeleting(id);
+      const user = auth.currentUser;
+      if (!user) return;
+
+      const token = await user.getIdToken();
+      const res = await fetch(`${API_BASE}/notifications/${id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!res.ok) throw new Error("Failed to delete notification");
+
+      setServerNotifications((prev) => prev.filter((n) => n._id !== id));
+      removeNotification(id);
     } catch (error) {
       console.error("Failed to delete notification:", error);
       toast({
@@ -58,51 +74,154 @@ const Notifications = () => {
     }
   };
 
-  const parseDateSafe = (value: string) => {
-    const date = new Date(value);
-    if (isNaN(date.getTime())) return null;
-    return date;
-  };
+  const handleClearAll = async () => {
+    try {
+      setDeleting("all");
+      const user = auth.currentUser;
+      if (!user) return;
 
-  const formatTime = (timestamp: string) => {
-    const date = parseDateSafe(timestamp);
-    if (!date) return "Recently";
+      const token = await user.getIdToken();
+      const res = await fetch(`${API_BASE}/notifications/clear/all`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
+      if (!res.ok) throw new Error("Failed to clear notifications");
 
-    // If timestamp is in the future, treat as just now
-    if (diffMs < 0) return "Just now";
-
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-
-    if (diffMins < 1) return "Just now";
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
-
-    return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: date.getFullYear() !== now.getFullYear() ? "numeric" : undefined });
-  };
-
-  const formatFullTime = (timestamp: string) => {
-    const date = parseDateSafe(timestamp);
-    if (!date) return "Unknown time";
-    return date.toLocaleString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-    });
-  };
-
-  const getFallbackAvatar = (userImage: string | null) => {
-    if (userImage && userImage.trim() !== "" && !userImage.includes("default")) {
-      return userImage;
+      setServerNotifications([]);
+      clearAll();
+    } catch (error) {
+      console.error("Failed to clear notifications:", error);
+      toast({
+        title: "Error",
+        description: "Could not clear notifications",
+        variant: "destructive",
+        duration: 2000,
+      });
+    } finally {
+      setDeleting(null);
     }
+  };
+
+  const handleApproveFollowRequest = async (fromUserId: string) => {
+    try {
+      setActionLoading(fromUserId);
+      const user = auth.currentUser;
+      if (!user) return;
+
+      const token = await user.getIdToken();
+      const res = await fetch(`${API_BASE}/follow/approve-request/${fromUserId}`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (res.ok) {
+        toast({
+          description: "Follow request approved",
+          duration: 1500,
+        });
+        loadNotifications();
+      } else {
+        throw new Error("Failed to approve");
+      }
+    } catch (error) {
+      console.error("Failed to approve:", error);
+      toast({
+        title: "Error",
+        description: "Could not approve follow request",
+        variant: "destructive",
+        duration: 2000,
+      });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleRejectFollowRequest = async (fromUserId: string) => {
+    try {
+      setActionLoading(fromUserId);
+      const user = auth.currentUser;
+      if (!user) return;
+
+      const token = await user.getIdToken();
+      const res = await fetch(`${API_BASE}/follow/reject-request/${fromUserId}`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (res.ok) {
+        toast({
+          description: "Follow request rejected",
+          duration: 1500,
+        });
+        loadNotifications();
+      } else {
+        throw new Error("Failed to reject");
+      }
+    } catch (error) {
+      console.error("Failed to reject:", error);
+      toast({
+        title: "Error",
+        description: "Could not reject follow request",
+        variant: "destructive",
+        duration: 2000,
+      });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleFollowBack = async (targetUserId: string) => {
+    try {
+      setActionLoading(targetUserId);
+      const user = auth.currentUser;
+      if (!user) return;
+
+      const token = await user.getIdToken();
+      const res = await fetch(`${API_BASE}/follow/follow-back/${targetUserId}`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        toast({
+          description: data.follow_status === "following" ? "Now following" : "Follow request sent",
+          duration: 1500,
+        });
+        
+        // Reload notifications to update button state
+        await loadNotifications();
+      } else {
+        throw new Error("Failed to follow back");
+      }
+    } catch (error) {
+      console.error("Failed to follow back:", error);
+      toast({
+        title: "Error",
+        description: "Could not follow back",
+        variant: "destructive",
+        duration: 2000,
+      });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const getFallbackAvatar = (userImage: string | null, gender?: string | null) => {
+    const hasCustomImage = userImage && 
+      userImage.trim() !== "" && 
+      !userImage.includes("default") && 
+      !userImage.includes("placeholder") && 
+      !userImage.startsWith("blob:");
+
+    if (hasCustomImage) {
+      const cacheBuster = userImage!.includes("?") ? "&" : "?";
+      return `${userImage}${cacheBuster}t=${Date.now()}`;
+    }
+    
+    if (gender === "male") return maleIcon;
+    if (gender === "female") return femaleIcon;
     return profileIcon;
   };
 
@@ -126,23 +245,20 @@ const Notifications = () => {
                 Notifications
               </h1>
             </div>
-            {notifications.length > 0 && (
+            {serverNotifications.length > 0 && (
               <button
-                onClick={async () => {
-                  for (const n of notifications) {
-                    await handleDeleteNotification(n.id);
-                  }
-                }}
+                onClick={handleClearAll}
                 className="text-xs md:text-sm text-muted-foreground hover:text-destructive transition-colors px-3 py-2 rounded-lg hover:bg-muted/50"
+                disabled={deleting === "all"}
               >
-                Clear All
+                {deleting === "all" ? "Clearing..." : "Clear All"}
               </button>
             )}
           </div>
         </div>
 
         {/* Notifications List */}
-        {notifications.length === 0 ? (
+        {serverNotifications.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
             <Bell className="w-16 h-16 text-muted-foreground/30 mb-4" />
             <p className="text-muted-foreground font-medium">No notifications</p>
@@ -152,58 +268,137 @@ const Notifications = () => {
           </div>
         ) : (
           <div className="space-y-1 px-2 md:px-4 py-4">
-            {notifications.map((notif) => (
-              <div
-                key={notif.id}
-                className="bg-muted/40 hover:bg-muted/60 rounded-lg p-3 md:p-4 transition-all border border-border/50 group active:scale-95 cursor-pointer"
-                onClick={() => handleDeleteNotification(notif.id)}
-              >
-                <div className="flex gap-3 items-start">
-                  {/* Avatar */}
-                  <img
-                    src={getFallbackAvatar(notif.user_image)}
-                    alt={notif.user_name}
-                    className="w-10 h-10 md:w-12 md:h-12 rounded-full object-cover flex-shrink-0 ring-2 ring-primary/20"
-                  />
+            {serverNotifications.map((notif) => {
+              const targetUserId = notif.from_user_id || notif.user_id;
+              const isFollowRequest = notif.action === "follow_request";
+              const isFollowApproved = notif.action === "follow_approved";
+              const isStartedFollowing = notif.action === "started_following";
+              
+              // Determine button to show based on follow_status in notification
+              const shouldShowFollowBack = isStartedFollowing && notif.follow_status === "none";
+              const shouldShowRequestedStatus = isStartedFollowing && notif.follow_status === "requested";
+              const shouldShowFollowingStatus = isStartedFollowing && notif.follow_status === "following";
+              const shouldShowApprovalText = isFollowApproved; // Text only, no buttons
 
-                  {/* Content */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1 min-w-0">
+              return (
+                <div
+                  key={notif._id}
+                  className="bg-muted/40 hover:bg-muted/60 rounded-lg p-3 md:p-4 transition-all border border-border/50 group"
+                >
+                  <div className="flex gap-3 items-center">
+                    {/* Avatar */}
+                    <Link to={targetUserId ? `/user/${targetUserId}` : "#"} className="flex-shrink-0">
+                      <img
+                        src={getFallbackAvatar(notif.from_user_image, notif.from_user_gender)}
+                        alt={notif.from_user_name}
+                        className="w-10 h-10 md:w-12 md:h-12 rounded-full object-cover ring-2 ring-primary/20"
+                      />
+                    </Link>
+
+                    {/* Content */}
+                    <div className="flex-1 min-w-0">
+                      <Link to={targetUserId ? `/user/${targetUserId}` : "#"} className="block hover:opacity-80">
                         <p className="font-semibold text-foreground text-sm md:text-base">
-                          {notif.user_name}
+                          {notif.from_user_name}
                         </p>
+                        {notif.from_user_username && (
+                          <p className="text-xs text-muted-foreground">@{notif.from_user_username}</p>
+                        )}
                         <p className="text-xs md:text-sm text-muted-foreground line-clamp-2">
                           {notif.description}
                         </p>
-                      </div>
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        <span
-                          className="text-xs text-muted-foreground whitespace-nowrap flex items-center gap-1"
-                          title={formatFullTime(notif.timestamp)}
+                      </Link>
+                    </div>
+
+                    {/* Right Side: Buttons or Time/Delete */}
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {/* Follow Back Button */}
+                      {shouldShowFollowBack && (
+                        <button
+                          onClick={() => handleFollowBack(notif.from_user_id)}
+                          disabled={actionLoading === notif.from_user_id}
+                          className="px-4 py-1.5 bg-primary text-primary-foreground rounded-lg font-semibold text-xs hover:bg-primary/90 transition-all disabled:opacity-50"
                         >
-                          <Clock className="w-3 h-3" />
-                          {formatTime(notif.timestamp)}
+                          Follow Back
+                        </button>
+                      )}
+
+                      {/* Requested Status (after follow back to a private user) */}
+                      {shouldShowRequestedStatus && (
+                        <span className="px-4 py-1.5 bg-muted text-muted-foreground rounded-lg font-semibold text-xs flex items-center gap-1.5">
+                          <Clock className="w-3.5 h-3.5" />
+                          Requested
                         </span>
-                      </div>
+                      )}
+
+                      {/* Following Status */}
+                      {shouldShowFollowingStatus && (
+                        <span className="px-4 py-1.5 bg-muted text-muted-foreground rounded-lg font-semibold text-xs flex items-center gap-1.5">
+                          <UserCheck className="w-3.5 h-3.5" />
+                          Following
+                        </span>
+                      )}
+
+                      {/* Approve/Reject Buttons for Follow Requests */}
+                      {isFollowRequest && (
+                        <>
+                          <button
+                            onClick={() => handleApproveFollowRequest(notif.from_user_id)}
+                            disabled={actionLoading === notif.from_user_id}
+                            className="px-4 py-1.5 bg-primary text-primary-foreground rounded-lg font-semibold text-xs hover:bg-primary/90 transition-all disabled:opacity-50"
+                          >
+                            Confirm
+                          </button>
+                          <button
+                            onClick={() => handleRejectFollowRequest(notif.from_user_id)}
+                            disabled={actionLoading === notif.from_user_id}
+                            className="px-4 py-1.5 bg-muted text-foreground rounded-lg font-semibold text-xs hover:bg-muted/80 transition-all disabled:opacity-50"
+                          >
+                            Delete
+                          </button>
+                        </>
+                      )}
+
+                      {/* Approval Text (no buttons) */}
+                      {shouldShowApprovalText && (
+                        <span className="text-xs text-muted-foreground">Approved</span>
+                      )}
+
+                      {/* Time and Delete icon (only show when no action buttons) */}
+                      {!shouldShowFollowBack && !shouldShowRequestedStatus && !shouldShowFollowingStatus && !isFollowRequest && !shouldShowApprovalText && (
+                        <>
+                          <span className="text-xs text-muted-foreground whitespace-nowrap flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            {(() => {
+                              const date = new Date(notif.timestamp);
+                              const now = new Date();
+                              const diffMs = now.getTime() - date.getTime();
+                              const diffMins = Math.floor(diffMs / 60000);
+                              const diffHours = Math.floor(diffMs / 3600000);
+                              const diffDays = Math.floor(diffMs / 86400000);
+
+                              if (diffMins < 1) return "Just now";
+                              if (diffMins < 60) return `${diffMins}m ago`;
+                              if (diffHours < 24) return `${diffHours}h ago`;
+                              if (diffDays < 7) return `${diffDays}d ago`;
+                              return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+                            })()}
+                          </span>
+                          <button
+                            onClick={() => targetUserId && handleDeleteNotification(notif._id)}
+                            disabled={deleting === notif._id}
+                            className="p-1 rounded-md hover:bg-muted transition-colors"
+                            title="Delete notification"
+                          >
+                            <Trash2 className="w-4 h-4 text-muted-foreground" />
+                          </button>
+                        </>
+                      )}
                     </div>
                   </div>
-
-                  {/* Remove Button - Always visible */}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDeleteNotification(notif.id);
-                    }}
-                    disabled={deleting === notif.id}
-                    className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-all flex-shrink-0 disabled:opacity-50"
-                    title="Remove notification"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

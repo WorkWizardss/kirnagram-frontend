@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   User,
@@ -22,6 +22,8 @@ import { useTheme } from "next-themes";
 import { useTranslation } from "react-i18next";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { languages } from "@/i18n/translations";
+import { useToast } from "@/hooks/use-toast";
+import { auth } from "@/firebase";
 
 const Settings = () => {
   const navigate = useNavigate();
@@ -29,6 +31,29 @@ const Settings = () => {
   const { t, i18n } = useTranslation();
   const [isPrivateAccount, setIsPrivateAccount] = useState(false);
   const [showLanguageModal, setShowLanguageModal] = useState(false);
+  const { toast } = useToast();
+  const [updatingPrivacy, setUpdatingPrivacy] = useState(false);
+
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged(async (user) => {
+      if (!user) return;
+      try {
+        const token = await user.getIdToken();
+        const res = await fetch("http://127.0.0.1:8000/profile/me", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          setIsPrivateAccount(data.account_type === "private");
+        }
+      } catch (error) {
+        console.error("Failed to load account type", error);
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   const currentLanguage = languages.find(lang => lang.code === i18n.language) || languages[0];
 
@@ -40,6 +65,44 @@ const Settings = () => {
 
   const handleLogout = () => {
     navigate("/login");
+  };
+
+  const togglePrivacy = async () => {
+    if (updatingPrivacy) return;
+    try {
+      setUpdatingPrivacy(true);
+      const user = auth.currentUser;
+      if (!user) return;
+
+      const nextValue = !isPrivateAccount;
+      const token = await user.getIdToken();
+      const res = await fetch("http://127.0.0.1:8000/profile/update", {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ account_type: nextValue ? "private" : "public" }),
+      });
+
+      if (!res.ok) throw new Error("Failed to update privacy");
+
+      setIsPrivateAccount(nextValue);
+      toast({
+        description: nextValue ? "Switched to a private account" : "Switched to a public account",
+        duration: 1500,
+      });
+    } catch (error) {
+      console.error("Privacy toggle failed", error);
+      toast({
+        title: "Error",
+        description: "Could not update account privacy",
+        variant: "destructive",
+        duration: 2000,
+      });
+    } finally {
+      setUpdatingPrivacy(false);
+    }
   };
 
   const settingsSections = [
@@ -60,7 +123,7 @@ const Settings = () => {
           label: t('settings.privateAccount'),
           toggle: true,
           checked: isPrivateAccount,
-          onChange: () => setIsPrivateAccount(!isPrivateAccount),
+          onChange: togglePrivacy,
           description: isPrivateAccount 
             ? t('settings.privateAccountOn')
             : t('settings.privateAccountOff'),
