@@ -165,7 +165,7 @@ const handleGoogleLogin = async () => {
 
 
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-screen flex overflow-x-hidden">
       <GoogleMobileModal
         open={showMobileModal}
         onClose={() => setShowMobileModal(false)}
@@ -173,7 +173,7 @@ const handleGoogleLogin = async () => {
       />
 
       {/* Left Panel - Form */}
-      <div className="flex-1 flex flex-col justify-center px-6 py-12 lg:px-20 bg-background relative">
+      <div className="flex-1 flex flex-col justify-center px-6 py-12 lg:px-20 bg-background relative overflow-x-hidden">
         {/* Watercolor overlay */}
         <div className="absolute inset-0 opacity-10 pointer-events-none bg-gradient-to-br from-primary/30 via-transparent to-primary/20" />
 

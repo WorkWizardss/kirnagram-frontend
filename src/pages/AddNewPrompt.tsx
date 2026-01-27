@@ -54,7 +54,7 @@ const AddNewPrompt = () => {
 
   return (
     <MainLayout showRightSidebar={false}>
-      <div className="max-w-2xl mx-auto px-3 md:px-0 pb-24 md:pb-8">
+      <div className="max-w-2xl mx-auto px-3 md:px-0 pb-24 md:pb-8 overflow-x-hidden">
         {/* Header */}
         <div className="flex items-center gap-3 mb-6">
           <Link 

@@ -103,7 +103,7 @@ const AICreator = () => {
 
     return (
       <MainLayout showRightSidebar={false}>
-        <div className="max-w-4xl mx-auto pb-20 md:pb-0">
+        <div className="max-w-4xl mx-auto pb-20 md:pb-0 overflow-x-hidden">
           {/* Cover Photo */}
           <div className="relative h-32 sm:h-44 md:h-52 rounded-none sm:rounded-2xl overflow-hidden">
             <img

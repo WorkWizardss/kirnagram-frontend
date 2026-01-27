@@ -73,7 +73,7 @@ const CreatorPrompts = () => {
   if (selectedPrompt) {
     return (
       <MainLayout showRightSidebar={false}>
-        <div className="max-w-4xl mx-auto px-3 md:px-0 pb-24 md:pb-8">
+        <div className="max-w-4xl mx-auto px-3 md:px-0 pb-24 md:pb-8 overflow-x-hidden">
           <button 
             onClick={() => setSelectedPrompt(null)}
             className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-4"
@@ -153,7 +153,7 @@ const CreatorPrompts = () => {
 
   return (
     <MainLayout showRightSidebar={false}>
-      <div className="max-w-4xl mx-auto px-3 md:px-0 pb-24 md:pb-8">
+      <div className="max-w-4xl mx-auto px-3 md:px-0 pb-24 md:pb-8 overflow-x-hidden">
         {/* Header */}
         <div className="flex items-center gap-3 mb-6">
           <Link 

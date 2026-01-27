@@ -2,7 +2,7 @@ import { MainLayout } from "@/components/layout/MainLayout";
 
 const Privacy = () => (
   <MainLayout showRightSidebar={false}>
-    <div className="max-w-3xl mx-auto px-2 md:px-0">
+    <div className="max-w-3xl mx-auto px-2 md:px-0 overflow-x-hidden">
       <h1 className="text-xl font-display font-bold mb-4">Privacy Policy</h1>
       <div className="prose prose-sm dark:prose-invert max-w-none space-y-4">
         <p className="text-muted-foreground">Last updated: January 2025</p>

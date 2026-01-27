@@ -204,7 +204,7 @@ const handleGoogleLogin = async () => {
 
  
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-screen flex overflow-x-hidden">
       <GoogleMobileModal
         open={showMobileModal}
         onClose={() => setShowMobileModal(false)}

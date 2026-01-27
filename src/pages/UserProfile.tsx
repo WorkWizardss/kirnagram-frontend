@@ -13,7 +13,7 @@ import {
   Clock,
   ArrowLeft,
 } from "lucide-react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import avatar2 from "@/assets/avatar-2.jpg";
 import profileIcon from "@/assets/profileicon.png";
@@ -184,7 +184,7 @@ const UserProfile = () => {
 
   return (
     <MainLayout showRightSidebar={false}>
-      <div className="max-w-4xl mx-auto pb-20 md:pb-0">
+      <div className="max-w-4xl mx-auto pb-20 md:pb-0 overflow-x-hidden">
         {/* Cover Photo with Back Button */}
         <div className="relative h-32 sm:h-48 md:h-64 rounded-none sm:rounded-2xl overflow-hidden">
           <img
@@ -227,19 +227,37 @@ const UserProfile = () => {
                 <p className="text-xs text-muted-foreground">Posts</p>
               </div>
 
-              <div className="text-center">
-                <p className="text-lg font-display font-bold">
-                  {profile.followers_count || 0}
-                </p>
-                <p className="text-xs text-muted-foreground">Followers</p>
-              </div>
+              {canViewFullProfile ? (
+                <Link to={`/user/${userId}/followers`} className="text-center hover:opacity-80 transition-opacity">
+                  <p className="text-lg font-display font-bold">
+                    {profile.followers_count || 0}
+                  </p>
+                  <p className="text-xs text-muted-foreground">Followers</p>
+                </Link>
+              ) : (
+                <div className="text-center">
+                  <p className="text-lg font-display font-bold">
+                    {profile.followers_count || 0}
+                  </p>
+                  <p className="text-xs text-muted-foreground">Followers</p>
+                </div>
+              )}
 
-              <div className="text-center">
-                <p className="text-lg font-display font-bold">
-                  {profile.following_count || 0}
-                </p>
-                <p className="text-xs text-muted-foreground">Following</p>
-              </div>
+              {canViewFullProfile ? (
+                <Link to={`/user/${userId}/following`} className="text-center hover:opacity-80 transition-opacity">
+                  <p className="text-lg font-display font-bold">
+                    {profile.following_count || 0}
+                  </p>
+                  <p className="text-xs text-muted-foreground">Following</p>
+                </Link>
+              ) : (
+                <div className="text-center">
+                  <p className="text-lg font-display font-bold">
+                    {profile.following_count || 0}
+                  </p>
+                  <p className="text-xs text-muted-foreground">Following</p>
+                </div>
+              )}
             </div>
           </div>
 

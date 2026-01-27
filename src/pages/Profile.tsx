@@ -138,7 +138,7 @@ const Profile = () => {
 
   return (
     <MainLayout showRightSidebar={false}>
-      <div className="max-w-4xl mx-auto pb-20 md:pb-0">
+      <div className="max-w-4xl mx-auto pb-20 md:pb-0 overflow-x-hidden">
         {/* Cover Photo */}
         <div className="relative h-32 sm:h-48 md:h-64 rounded-none sm:rounded-2xl overflow-hidden">
           <img
@@ -209,19 +209,19 @@ const Profile = () => {
     <p className="text-xs sm:text-sm text-muted-foreground">Posts</p>
   </div>
 
-  <div className="text-center">
+  <Link to={`/user/${profile.firebase_uid}/followers`} className="text-center hover:opacity-80 transition-opacity">
     <p className="text-lg sm:text-xl md:text-2xl font-display font-bold">
       {stats.followers}
     </p>
     <p className="text-xs sm:text-sm text-muted-foreground">Followers</p>
-  </div>
+  </Link>
 
-  <div className="text-center">
+  <Link to={`/user/${profile.firebase_uid}/following`} className="text-center hover:opacity-80 transition-opacity">
     <p className="text-lg sm:text-xl md:text-2xl font-display font-bold">
       {stats.following}
     </p>
     <p className="text-xs sm:text-sm text-muted-foreground">Following</p>
-  </div>
+  </Link>
 </div>
           {/* Bio */}
           <div className="mt-4 space-y-3">

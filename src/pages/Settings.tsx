@@ -170,7 +170,7 @@ const Settings = () => {
 
   return (
     <MainLayout showRightSidebar={false}>
-      <div className="max-w-2xl mx-auto pb-20 md:pb-0">
+      <div className="max-w-2xl mx-auto pb-20 md:pb-0 overflow-x-hidden">
         <h1 className="text-xl font-display font-bold mb-4 px-2">{t('settings.title')}</h1>
         
         {settingsSections.map((section) => (

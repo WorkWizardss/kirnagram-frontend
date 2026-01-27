@@ -699,7 +699,7 @@ const EditProfile = () => {
 
   return (
     <MainLayout showRightSidebar={false}>
-      <div className="max-w-2xl mx-auto">
+      <div className="max-w-2xl mx-auto overflow-x-hidden">
         {/* Header */}
         <div className="flex items-center justify-between mb-4 px-2 md:px-4">
           <h1 className="text-2xl md:text-3xl font-display font-bold">Edit Profile</h1>

@@ -88,7 +88,7 @@ const BecomePublisher = () => {
 
   return (
     <MainLayout showRightSidebar={false}>
-      <div className="max-w-3xl mx-auto pb-24 md:pb-8 px-4">
+      <div className="max-w-3xl mx-auto pb-24 md:pb-8 px-4 overflow-x-hidden">
         {/* Header */}
         <div className="text-center mb-8">
           <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-secondary mx-auto flex items-center justify-center mb-4">

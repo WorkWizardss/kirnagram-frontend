@@ -146,31 +146,33 @@ const Explore = () => {
 
   return (
     <MainLayout showRightSidebar={false}>
-      <div className="w-full min-h-screen pb-24 md:pb-8 px-3 sm:px-4 md:px-6 bg-background">
-        <div className="max-w-6xl mx-auto">
+      <div className="w-full min-h-screen pb-24 md:pb-8 bg-background overflow-x-hidden">
+        <div className="max-w-2xl md:max-w-6xl mx-auto">
         
         {/* Header with Search & Shuffle */}
-        <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6 mt-2">
-          <div className="relative flex-1 min-w-0">
-            <Search className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 w-4 sm:w-5 h-4 sm:h-5 text-muted-foreground flex-shrink-0" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => handleSearch(e.target.value)}
-              placeholder="Search..."
-              className="w-full pl-10 sm:pl-12 pr-3 sm:pr-4 py-2.5 sm:py-3 bg-card border border-border rounded-2xl text-sm sm:text-base placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all"
-            />
+        <div className="sticky md:relative top-0 md:top-auto z-50 md:z-10 bg-background/95 backdrop-blur-sm py-3 sm:py-4 px-3 sm:px-4 md:px-6 mb-4 sm:mb-6">
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            <div className="relative flex-1 min-w-0">
+              <Search className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 w-4 sm:w-5 h-4 sm:h-5 text-muted-foreground flex-shrink-0" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => handleSearch(e.target.value)}
+                placeholder="Search..."
+                className="w-full pl-10 sm:pl-12 pr-4 sm:pr-5 py-2.5 sm:py-3 bg-card border border-border rounded-2xl text-sm sm:text-base placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all"
+              />
+            </div>
+            <button 
+              onClick={handleShuffle}
+              className={cn(
+                "p-2.5 sm:p-3 rounded-lg sm:rounded-2xl bg-gradient-to-br from-primary to-secondary text-primary-foreground transition-all hover:scale-105 active:scale-95 flex-shrink-0",
+                isShuffling && "animate-spin"
+              )}
+              title="Shuffle"
+            >
+              <Shuffle className="w-5 sm:w-6 h-5 sm:h-6" />
+            </button>
           </div>
-          <button 
-            onClick={handleShuffle}
-            className={cn(
-              "p-2.5 sm:p-3 rounded-xl sm:rounded-2xl bg-gradient-to-br from-primary to-secondary text-primary-foreground transition-all hover:scale-105 active:scale-95 flex-shrink-0",
-              isShuffling && "animate-spin"
-            )}
-            title="Shuffle"
-          >
-            <Shuffle className="w-5 sm:w-6 h-5 sm:h-6" />
-          </button>
         </div>
 
         {/* Search Results Section */}
@@ -287,22 +289,25 @@ const Explore = () => {
         {!searchQuery.trim() && (
           <>
         {/* Style Categories - Horizontal Scroll */}
-        <div className="flex gap-2 overflow-x-auto pb-3 -mx-3 sm:-mx-4 md:-mx-6 px-3 sm:px-4 md:px-6 mb-6 w-screen scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-          {styleCategories.map((cat) => (
-            <button
-              key={cat.id}
-              onClick={() => setActiveCategory(cat.id)}
-              className={cn(
-                "flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-medium transition-all whitespace-nowrap flex-shrink-0",
-                activeCategory === cat.id
-                  ? `bg-gradient-to-r ${cat.gradient} text-white shadow-lg`
-                  : "bg-card border border-border text-muted-foreground hover:text-foreground hover:border-primary/50"
-              )}
-            >
-              <cat.icon className="w-4 h-4" />
-              {cat.label}
-            </button>
-          ))}
+        <div className="sticky md:relative top-16 md:top-auto z-40 md:z-auto bg-background/95 backdrop-blur-sm py-2 sm:py-3 px-3 sm:px-4 md:px-6 mb-6 sm:mb-8">
+          <div className="flex gap-1.5 sm:gap-2 overflow-x-auto pb-2 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+            {styleCategories.map((cat) => (
+              <button
+                key={cat.id}
+                onClick={() => setActiveCategory(cat.id)}
+                className={cn(
+                  "flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-full sm:rounded-2xl text-xs sm:text-sm font-medium transition-all whitespace-nowrap flex-shrink-0",
+                  activeCategory === cat.id
+                    ? `bg-gradient-to-r ${cat.gradient} text-white shadow-lg`
+                    : "bg-card border border-border text-muted-foreground hover:text-foreground hover:border-primary/50"
+                )}
+              >
+                <cat.icon className="w-3.5 sm:w-4 h-3.5 sm:h-4 flex-shrink-0" />
+                <span className="hidden sm:inline">{cat.label}</span>
+                <span className="sm:hidden text-xs">{cat.label === "For You" ? "For" : cat.label === "Neon Glow" ? "Neon" : cat.label === "Artistic" ? "Art" : cat.label === "Fantasy" ? "Fancy" : cat.label === "Hot Now" ? "Hot" : "Port"}</span>
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Spotlight Section */}
@@ -398,7 +403,7 @@ const Explore = () => {
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>
-          <div className="flex gap-3 overflow-x-auto pb-2 -mx-3 sm:-mx-4 md:-mx-6 px-3 sm:px-4 md:px-6 w-screen scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+          <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
             {topCreators.map((creator, index) => (
               <div 
                 key={creator.id}
