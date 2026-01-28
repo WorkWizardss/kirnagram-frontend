@@ -38,10 +38,10 @@ export function Sidebar() {
 
       {/* Sidebar - Hidden on mobile, visible on desktop */}
       <aside
-        className="hidden lg:flex fixed lg:sticky top-0 left-0 h-screen w-64 bg-card/80 backdrop-blur-xl border-r border-border z-50 flex-col"
+        className="hidden lg:flex fixed top-0 left-0 h-screen w-64 bg-card/80 backdrop-blur-xl border-r border-border z-40 flex-col"
       >
         {/* Logo */}
-        <div className="p-6 border-b border-border">
+        <div className="p-6 border-b border-border shrink-0">
           <Link to="/" className="flex items-center gap-3" onClick={() => setIsOpen(false)}>
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shadow-lg shadow-primary/20">
               <Sparkles className="w-5 h-5 text-primary-foreground" />
@@ -53,7 +53,7 @@ export function Sidebar() {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+        <nav className="flex-1 p-4 space-y-2 overflow-y-auto min-h-0">
           {navItems.map((item) => (
             <Link
               key={item.path}
@@ -95,7 +95,7 @@ export function Sidebar() {
         </nav>
 
         {/* User Profile */}
-        <div className="p-4 border-t border-border">
+        <div className="p-4 border-t border-border shrink-0">
           <Link
             to="/profile"
             onClick={() => setIsOpen(false)}

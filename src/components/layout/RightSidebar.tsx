@@ -24,46 +24,8 @@ const trending = [
 
 export function RightSidebar() {
   return (
-    <aside className="hidden xl:block w-80 space-y-4 sticky top-20 h-fit">
-      {/* Stories */}
-      <div className="glass-card p-4">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-display font-semibold">STORIES</h3>
-          <span className="badge-live">LIVE</span>
-        </div>
-
-        <div className="space-y-3">
-          {stories.map((story) => (
-            <div key={story.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer">
-              {story.isAdd ? (
-                <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center border-2 border-dashed border-muted-foreground/50">
-                  <Plus className="w-5 h-5 text-muted-foreground" />
-                </div>
-              ) : (
-                <div className={story.isLive ? "story-ring-live" : "story-ring"}>
-                  <img
-                    src={story.image}
-                    alt={story.name}
-                    className="w-11 h-11 rounded-full object-cover"
-                  />
-                </div>
-              )}
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-sm truncate">{story.name}</p>
-                <p className="text-xs text-muted-foreground truncate">
-                  {story.isAdd ? "Share your moment" : story.isLive ? story.activity : story.time}
-                </p>
-              </div>
-              {story.isLive && (
-                <span className="px-2 py-0.5 text-[10px] font-semibold bg-destructive/20 text-destructive rounded">
-                  LIVE
-                </span>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
-
+    <aside className="w-full space-y-4 h-fit max-h-[calc(100vh-120px)] overflow-y-auto">
+      
       {/* Live Activity */}
       <div className="glass-card p-4">
         <div className="flex items-center justify-between mb-4">

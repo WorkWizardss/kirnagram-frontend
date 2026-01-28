@@ -25,6 +25,8 @@ import AddNewPrompt from "./pages/AddNewPrompt";
 import EditCreatorProfile from "./pages/EditCreatorProfile";
 import BecomePublisher from "./pages/BecomePublisher";
 import NotFound from "./pages/NotFound";
+import StoryUpload from "@/components/StoryUpload";
+import StoryView from "@/components/StoryView";
 
 const queryClient = new QueryClient();
 
@@ -90,6 +92,9 @@ const App = () => (
             <Route path="/privacy" element={<PrivateRoute><Privacy /></PrivateRoute>} />
             <Route path="/terms" element={<PrivateRoute><Terms /></PrivateRoute>} />
             <Route path="/become-publisher" element={<PrivateRoute><BecomePublisher /></PrivateRoute>} />
+            <Route path="/story/upload" element={<PrivateRoute><StoryUpload /></PrivateRoute>} />
+            <Route path="/story/view" element={<PrivateRoute><StoryView /></PrivateRoute>} />
+            <Route path="/story/view/:storyId" element={<PrivateRoute><StoryView /></PrivateRoute>} />
 
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />

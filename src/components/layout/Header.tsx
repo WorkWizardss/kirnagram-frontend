@@ -70,25 +70,33 @@ export function Header() {
   };
 
   return (
-    <header className="sticky top-0 z-30 bg-card/80 backdrop-blur-xl border-b border-border">
-      <div className="flex items-center justify-between px-4 py-3 lg:px-6">
-        {/* Mobile Logo - No hamburger menu */}
-        <Link to="/" className="lg:hidden flex items-center gap-2">
+    <header className="sticky top-0 z-50 bg-card/95 backdrop-blur-xl border-b border-border w-full">
+      <div className="flex items-center justify-between px-4 py-3 lg:px-6 w-full">
+        {/* Mobile Logo */}
+        <Link to="/" className="lg:hidden flex items-center gap-2 shrink-0">
           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center">
             <span className="text-primary-foreground font-bold text-sm">K</span>
           </div>
-          <span className="font-display font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">Kiranagram</span>
+          <span className="font-display font-bold text-base bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">Kiranagram</span>
+        </Link>
+
+        {/* Desktop Logo - Shows KIRANAGRAM */}
+        <Link to="/" className="hidden lg:flex items-center gap-2">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center">
+            <span className="text-primary-foreground font-bold text-sm">K</span>
+          </div>
+          <span className="font-display font-bold text-lg bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">KIRANAGRAM</span>
         </Link>
 
         {/* Spacer for desktop layout */}
         <div className="hidden lg:flex flex-1" />
 
-        {/* Right Actions - Simplified for mobile */}
-        <div className="flex items-center gap-2 lg:gap-3">
+        {/* Right Actions - Visible on all screens */}
+        <div className="flex items-center gap-2 lg:gap-3 shrink-0">
           {/* Theme toggle - visible on all screens */}
           <button 
             onClick={toggleTheme}
-            className="p-2 hover:bg-muted rounded-lg transition-colors"
+            className="p-2 hover:bg-muted rounded-lg transition-colors flex items-center justify-center"
             aria-label="Toggle theme"
           >
             {theme === "dark" ? (
@@ -101,7 +109,7 @@ export function Header() {
           {/* Notifications - visible on all screens */}
           <button 
             onClick={() => navigate("/notifications")}
-            className="relative p-2 hover:bg-muted rounded-lg transition-colors group"
+            className="relative p-2 hover:bg-muted rounded-lg transition-colors group flex items-center justify-center"
             title="View notifications"
           >
             <Bell className="w-5 h-5 text-muted-foreground group-hover:text-primary" />
