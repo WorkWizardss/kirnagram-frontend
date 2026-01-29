@@ -4,6 +4,11 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { auth } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 
+// Gender-based fallback icons
+const maleIcon = "https://cdn-icons-png.flaticon.com/512/3237/3237472.png";
+const femaleIcon = "https://cdn-icons-png.flaticon.com/512/3237/3237417.png";
+const profileIcon = "https://cdn-icons-png.flaticon.com/512/3237/3237483.png";
+
 interface Story {
   story_id: string;
   user_id: string;
@@ -26,6 +31,7 @@ interface StoryUser {
   user_id: string;
   username: string;
   user_image?: string;
+  gender?: string;
   stories: Story[];
   unviewed_count: number;
 }
@@ -46,14 +52,34 @@ const StoryView: React.FC = () => {
   const [message, setMessage] = useState('');
   const [showReply, setShowReply] = useState(false);
   const [isOwnStory, setIsOwnStory] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const progressRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isPaused, setIsPaused] = useState(false);
   const [progressStartTime, setProgressStartTime] = useState<number>(Date.now());
+  const [timeString, setTimeString] = useState<string>('Just now');
   const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const timeUpdateIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const currentUser = storyUsers[currentUserIdx];
   const currentStory = currentUser?.stories[currentStoryIdx];
+
+  // Helper function to check if image URL is valid
+  const isValidRemoteImage = (url?: string) => {
+    return url?.startsWith("http") && !url.includes("default") && !url.includes("placeholder");
+  };
+
+  // Get profile image with gender fallback
+  const getProfileImage = () => {
+    if (isValidRemoteImage(currentUser?.user_image)) {
+      return currentUser.user_image;
+    }
+    
+    // Fallback to gender-based icon
+    if (currentUser?.gender === "male") return maleIcon;
+    if (currentUser?.gender === "female") return femaleIcon;
+    return profileIcon;
+  };
 
   // Fetch stories feed
   useEffect(() => {
@@ -258,6 +284,25 @@ const StoryView: React.FC = () => {
     checkOwnership();
   }, [currentUser, currentUserIdx]);
 
+  // Update time string when story changes and every minute
+  useEffect(() => {
+    if (!currentStory) return;
+
+    const updateTimeString = () => {
+      setTimeString(getRelativeTime(currentStory.created_at));
+    };
+
+    // Update immediately
+    updateTimeString();
+
+    // Update every minute
+    const interval = setInterval(updateTimeString, 60000);
+
+    return () => {
+      clearInterval(interval);
+    };
+  }, [currentStory]);
+
   const handleLike = async () => {
     if (!currentStory) return;
 
@@ -317,12 +362,16 @@ const StoryView: React.FC = () => {
   const handleDeleteStory = async () => {
     if (!currentStory) return;
     
-    if (!window.confirm('Delete this story?')) return;
+    setShowDeleteConfirm(false);
 
     try {
       const user = auth.currentUser;
       if (!user) {
-        console.error('Not authenticated');
+        toast({
+          title: "Not authenticated",
+          description: "Please sign in to delete stories",
+          variant: "destructive"
+        });
         return;
       }
       const token = await user.getIdToken();
@@ -335,21 +384,44 @@ const StoryView: React.FC = () => {
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         console.error(`Delete failed ${response.status}:`, errorData);
-        alert('Failed to delete story');
+        toast({
+          title: "Delete failed",
+          description: "Could not delete your story. Please try again.",
+          variant: "destructive"
+        });
         return;
       }
 
-      alert('Story deleted!');
-      navigate('/');
+      toast({
+        title: "Story deleted ✓",
+        description: "Your story has been removed",
+      });
+      
+      setTimeout(() => navigate('/'), 500);
     } catch (error) {
       console.error('Error deleting story:', error);
-      alert('Failed to delete story');
+      toast({
+        title: "Delete failed",
+        description: "An error occurred while deleting",
+        variant: "destructive"
+      });
     }
   };
 
   const handleNextStory = () => {
     if (progressIntervalRef.current) {
       clearInterval(progressIntervalRef.current);
+    }
+    
+    // Reset progress bar to 0%
+    if (progressRef.current) {
+      progressRef.current.style.width = '0%';
+    }
+    
+    // Reset video to beginning
+    if (videoRef.current) {
+      videoRef.current.currentTime = 0;
+      videoRef.current.play().catch(err => console.log('Video play error:', err));
     }
 
     if (currentStoryIdx < currentUser.stories.length - 1) {
@@ -366,6 +438,17 @@ const StoryView: React.FC = () => {
     if (progressIntervalRef.current) {
       clearInterval(progressIntervalRef.current);
     }
+    
+    // Reset progress bar to 0%
+    if (progressRef.current) {
+      progressRef.current.style.width = '0%';
+    }
+    
+    // Reset video to beginning
+    if (videoRef.current) {
+      videoRef.current.currentTime = 0;
+      videoRef.current.play().catch(err => console.log('Video play error:', err));
+    }
 
     if (currentStoryIdx > 0) {
       setCurrentStoryIdx(currentStoryIdx - 1);
@@ -373,6 +456,46 @@ const StoryView: React.FC = () => {
       setCurrentUserIdx(currentUserIdx - 1);
       const prevUser = storyUsers[currentUserIdx - 1];
       setCurrentStoryIdx(prevUser.stories.length - 1);
+    }
+  };
+
+  // Calculate relative time (e.g., "2h ago", "5m ago")
+  const getRelativeTime = (dateString: string): string => {
+    try {
+      const now = new Date();
+      
+      // Handle ISO 8601 format and other formats
+      let past = new Date(dateString);
+      
+      // If the date parsing failed, try parsing as ISO string
+      if (isNaN(past.getTime())) {
+        past = new Date(dateString.replace(/\.\d+Z?$/, 'Z'));
+      }
+      
+      // Ensure we have a valid date
+      if (isNaN(past.getTime())) {
+        return 'Just now';
+      }
+      
+      const diffMs = now.getTime() - past.getTime();
+      
+      // If time difference is negative (story from future), treat as "Just now"
+      if (diffMs < 0) {
+        return 'Just now';
+      }
+      
+      const diffMins = Math.floor(diffMs / 60000);
+      const diffHours = Math.floor(diffMs / 3600000);
+      const diffDays = Math.floor(diffMs / 86400000);
+
+      if (diffMins < 1) return 'Just now';
+      if (diffMins < 60) return `${diffMins}m ago`;
+      if (diffHours < 24) return `${diffHours}h ago`;
+      if (diffDays === 1) return 'Yesterday';
+      return `${diffDays}d ago`;
+    } catch (error) {
+      console.error('Error calculating relative time:', error);
+      return 'Just now';
     }
   };
 
@@ -402,24 +525,6 @@ const StoryView: React.FC = () => {
       </div>
     );
   }
-
-  // Calculate relative time (e.g., "2h ago", "5m ago")
-  const getRelativeTime = (dateString: string): string => {
-    const now = new Date();
-    const past = new Date(dateString);
-    const diffMs = now.getTime() - past.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays === 1) return 'Yesterday';
-    return `${diffDays}d ago`;
-  };
-
-  const timeString = getRelativeTime(currentStory.created_at);
 
   return (
     <div className="h-screen bg-black flex flex-col relative">
@@ -459,13 +564,12 @@ const StoryView: React.FC = () => {
           }}
         >
           <img
-            src={currentUser?.user_image || 'https://via.placeholder.com/40'}
+            src={getProfileImage()}
             alt={currentUser?.username}
             className="w-10 h-10 rounded-full border-2 border-white"
           />
           <div className="text-white">
             <p className="font-semibold text-sm">{currentUser?.username}</p>
-            <p className="text-xs opacity-90">{timeString}</p>
           </div>
         </div>
 
@@ -492,7 +596,7 @@ const StoryView: React.FC = () => {
         />
 
         {/* Media content */}
-        <div className="w-full h-full">
+        <div className="w-full h-full relative">
           {currentStory.media_type === 'image' ? (
             <img
               src={currentStory.media_url}
@@ -507,6 +611,36 @@ const StoryView: React.FC = () => {
               autoPlay
               onEnded={handleNextStory}
             />
+          )}
+          
+          {/* Text Overlay */}
+          {currentStory.text && (
+            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-white text-2xl md:text-3xl font-bold text-center px-4 text-shadow-lg pointer-events-none z-10"
+              style={{
+                textShadow: '2px 2px 4px rgba(0,0,0,0.8), -1px -1px 2px rgba(0,0,0,0.5)'
+              }}
+            >
+              {currentStory.text}
+            </div>
+          )}
+          
+          {/* Emoji Stickers Overlay */}
+          {currentStory.emoji_stickers && currentStory.emoji_stickers.length > 0 && (
+            <>
+              {currentStory.emoji_stickers.map((sticker, idx) => (
+                <div
+                  key={idx}
+                  className="absolute text-4xl pointer-events-none z-10"
+                  style={{
+                    left: `${sticker.x}%`,
+                    top: `${sticker.y}%`,
+                    transform: 'translate(-50%, -50%)'
+                  }}
+                >
+                  {sticker.emoji}
+                </div>
+              ))}
+            </>
           )}
         </div>
 
@@ -546,7 +680,7 @@ const StoryView: React.FC = () => {
 
             {/* Delete Button */}
             <button
-              onClick={handleDeleteStory}
+              onClick={() => setShowDeleteConfirm(true)}
               className="flex items-center gap-2 text-white hover:text-white/80 transition font-semibold text-sm"
               title="Delete story"
             >
@@ -583,7 +717,7 @@ const StoryView: React.FC = () => {
                 {likers.slice(0, 3).map((liker, idx) => (
                   <img
                     key={liker.user_id}
-                    src={liker.image || 'https://via.placeholder.com/32'}
+                    src={liker.image || 'https://placehold.co/32x32/cccccc/999999?text=U'}
                     alt={liker.username}
                     className="w-8 h-8 rounded-full border-2 border-black object-cover cursor-pointer hover:scale-110 transition"
                     onClick={() => {
@@ -646,7 +780,7 @@ const StoryView: React.FC = () => {
                       }}
                     >
                       <img
-                        src={liker.image || 'https://via.placeholder.com/40'}
+                        src={liker.image || 'https://placehold.co/40x40/cccccc/999999?text=User'}
                         alt={liker.username}
                         className="w-10 h-10 rounded-full object-cover"
                       />
@@ -677,7 +811,7 @@ const StoryView: React.FC = () => {
                       }}
                     >
                       <img
-                        src={viewer.image || 'https://via.placeholder.com/40'}
+                        src={viewer.image || 'https://placehold.co/40x40/cccccc/999999?text=User'}
                         alt={viewer.username}
                         className="w-10 h-10 rounded-full object-cover"
                       />
@@ -692,6 +826,36 @@ const StoryView: React.FC = () => {
                 <p className="text-gray-400 text-sm text-center py-8">No one has viewed your story yet</p>
               )
             )}
+          </div>
+        </div>
+      )}
+      
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-gray-900 rounded-2xl p-6 max-w-sm w-full mx-4">
+            <div className="text-center">
+              <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Trash2 size={32} className="text-red-500" />
+              </div>
+              <h3 className="text-white font-bold text-xl mb-2">Delete Story?</h3>
+              <p className="text-gray-400 text-sm mb-6">This story will be permanently deleted and removed from your profile.</p>
+              
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className="flex-1 bg-gray-700 hover:bg-gray-600 text-white py-3 rounded-lg font-semibold transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDeleteStory}
+                  className="flex-1 bg-red-500 hover:bg-red-600 text-white py-3 rounded-lg font-semibold transition"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

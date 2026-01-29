@@ -1,7 +1,8 @@
-import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Home, Compass, Plus, Sparkles, User, Menu, X, UserPlus } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { auth } from "@/firebase";
 import avatar2 from "@/assets/avatar-2.jpg";
 
 interface NavItem {
@@ -29,7 +30,40 @@ const publisherItem: NavItem = {
 
 export function Sidebar() {
   const location = useLocation();
+  const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
+  const [myStories, setMyStories] = useState<any[]>([]);
+
+  // Fetch my stories to determine if story ring should show
+  useEffect(() => {
+    const fetchMyStories = async () => {
+      try {
+        const user = auth.currentUser;
+        if (!user) return;
+
+        const token = await user.getIdToken();
+        const response = await fetch("http://localhost:8000/stories/my-stories", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (response.ok) {
+          const stories = await response.json();
+          setMyStories(Array.isArray(stories) ? stories : []);
+        }
+      } catch (error) {
+        console.error("Failed to fetch stories:", error);
+      }
+    };
+
+    fetchMyStories();
+
+    // Refresh stories when location changes (e.g., after uploading a story)
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      if (user) fetchMyStories();
+    });
+
+    return () => unsubscribe();
+  }, [location]);
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -96,12 +130,23 @@ export function Sidebar() {
 
         {/* User Profile */}
         <div className="p-4 border-t border-border shrink-0">
-          <Link
-            to="/profile"
-            onClick={() => setIsOpen(false)}
-            className="flex items-center gap-3 p-2 rounded-xl hover:bg-muted/50 transition-colors"
+          <div
+            onClick={() => {
+              if (myStories.length > 0 && myStories[0]?.story_id) {
+                navigate(`/story/view/${myStories[0].story_id}`);
+              } else {
+                navigate("/profile");
+              }
+              setIsOpen(false);
+            }}
+            className="flex items-center gap-3 p-2 rounded-xl hover:bg-muted/50 transition-colors cursor-pointer"
           >
-            <div className="p-[2px] rounded-full bg-gradient-to-r from-primary to-primary/70">
+            <div className={cn(
+              "p-[2px] rounded-full transition-all",
+              myStories.length > 0 
+                ? "bg-gradient-to-tr from-orange-500 via-pink-500 to-yellow-400" 
+                : "bg-gradient-to-r from-primary to-primary/70"
+            )}>
               <img
                 src={avatar2}
                 alt="User"
@@ -112,7 +157,7 @@ export function Sidebar() {
               <p className="font-semibold text-sm truncate text-foreground">Elara Vance</p>
               <p className="text-xs text-muted-foreground truncate">@elaravance</p>
             </div>
-          </Link>
+          </div>
         </div>
       </aside>
     </>

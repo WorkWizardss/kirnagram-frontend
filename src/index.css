@@ -1,8 +1,8 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap');
 
 @layer base {
   :root {
@@ -245,4 +245,18 @@
   100% {
     background-position: 200% 0;
   }
+}
+
+@keyframes fill-up {
+  0% {
+    transform: translateX(-100%) scaleX(0);
+  }
+  100% {
+    transform: translateX(0) scaleX(1);
+  }
+}
+
+.animate-fill-up {
+  animation: fill-up 2.5s ease-in-out forwards;
+  transform-origin: left;
 }

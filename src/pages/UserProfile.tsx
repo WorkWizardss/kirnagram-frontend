@@ -44,6 +44,7 @@ const UserProfile = () => {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [followStatus, setFollowStatus] = useState<"following" | "requested" | "pending" | "none">("none");
   const [isActionLoading, setIsActionLoading] = useState(false);
+  const [userStories, setUserStories] = useState<any[]>([]);
 
   // Load current user and target profile
   useEffect(() => {
@@ -68,6 +69,40 @@ const UserProfile = () => {
           const data = await res.json();
           setProfile(data);
           setFollowStatus((data.follow_status || "none") as any);
+
+          // Fetch user's stories if allowed
+          const isFollowing = data.follow_status === "following";
+          const isPublic = data.account_type !== "private";
+          const canViewStories = isPublic || isFollowing;
+
+          // Only fetch and show stories if user can view them
+          if (canViewStories) {
+            const storiesRes = await fetch("http://localhost:8000/stories/feed", {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            });
+
+            if (storiesRes.ok) {
+              const storiesData = await storiesRes.json();
+              // Find this user's stories from the feed
+              const thisUserStories = storiesData.find((u: any) => u.user_id === userId);
+              const stories = thisUserStories?.stories || [];
+              
+              // Only set stories if they actually exist
+              if (stories.length > 0) {
+                setUserStories(stories);
+                console.log("✅ User has stories:", stories.length);
+              } else {
+                setUserStories([]);
+                console.log("❌ User has no stories");
+              }
+            }
+          } else {
+            // Private account, not following - don't show stories
+            setUserStories([]);
+            console.log("🔒 Private account - stories hidden");
+          }
         } catch (error) {
           console.error("Failed to load profile:", error);
         } finally {
@@ -162,24 +197,27 @@ const UserProfile = () => {
   const canViewFullProfile = !isPrivateAccount || isFollowing || currentUser?.uid === profile.firebase_uid;
   const canMessage = canViewFullProfile || currentUser?.uid === profile.firebase_uid;
 
-  const fallbackAvatar = profile.image_name && 
-    profile.image_name.trim() !== "" && 
-    !profile.image_name.includes("default") &&
-    !profile.image_name.includes("placeholder") &&
-    !profile.image_name.startsWith("blob:")
-    ? `${profile.image_name}?t=${Date.now()}`
+  const isValidRemoteImage = (url?: string) =>
+    typeof url === "string" &&
+    url.trim() !== "" &&
+    url.startsWith("http") &&
+    !url.includes("default") &&
+    !url.includes("placeholder") &&
+    !url.startsWith("blob:");
+
+  const withCacheBust = (url: string) =>
+    `${url}${url.includes("?") ? "&" : "?"}t=${Date.now()}`;
+
+  const fallbackAvatar = isValidRemoteImage(profile.image_name)
+    ? withCacheBust(profile.image_name)
     : profile.gender === "male"
       ? maleIcon
       : profile.gender === "female"
         ? femaleIcon
         : profileIcon;
 
-  const coverImage = profile.cover_image && 
-    profile.cover_image.trim() !== "" &&
-    !profile.cover_image.includes("default") &&
-    !profile.cover_image.includes("placeholder") &&
-    !profile.cover_image.startsWith("blob:")
-    ? `${profile.cover_image}?t=${Date.now()}`
+  const coverImage = isValidRemoteImage(profile.cover_image)
+    ? withCacheBust(profile.cover_image)
     : heroBanner;
 
   return (
@@ -208,7 +246,19 @@ const UserProfile = () => {
           <div className="flex gap-4 mb-4">
             {/* Avatar on left */}
             <div className="relative flex-shrink-0">
-              <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full p-1 bg-gradient-to-r from-primary to-secondary">
+              <div 
+                className={cn(
+                  "w-20 h-20 sm:w-24 sm:h-24 rounded-full p-1",
+                  userStories.length > 0
+                    ? "bg-gradient-to-tr from-orange-500 via-pink-500 to-yellow-400 cursor-pointer hover:scale-105 transition-transform"
+                    : "bg-gradient-to-r from-primary to-secondary"
+                )}
+                onClick={() => {
+                  if (userStories.length > 0 && userStories[0]?.story_id) {
+                    navigate(`/story/view/${userStories[0].story_id}`);
+                  }
+                }}
+              >
                 <img
                   src={fallbackAvatar}
                   alt="Profile"

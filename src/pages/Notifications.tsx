@@ -32,7 +32,7 @@ const Notifications = () => {
       if (!user) return;
 
       const token = await user.getIdToken();
-      const res = await fetch(`${API_BASE}/notifications/recent?limit=50`, {
+      const res = await fetch(`${API_BASE}/notifications/recent?limit=100&hours=720`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 

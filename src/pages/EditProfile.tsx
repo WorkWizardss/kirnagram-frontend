@@ -58,6 +58,8 @@ const EditProfile = () => {
   const [cameraLoading, setCameraLoading] = useState(false);
   const [detectingLocation, setDetectingLocation] = useState(false);
   const cropCanvasRef = useRef<HTMLCanvasElement>(null);
+  const genderDropdownRef = useRef<HTMLDivElement>(null);
+  const [genderOpen, setGenderOpen] = useState(false);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -154,6 +156,15 @@ const EditProfile = () => {
     if (name === "gender" && (!avatarPreview || avatarPreview === getGenderFallback(formData.gender))) {
       setAvatarPreview(getGenderFallback(value));
     }
+  };
+
+  const handleGenderSelect = (value: string) => {
+    const currentFallback = getGenderFallback(formData.gender);
+    setFormData({ ...formData, gender: value });
+    if (!avatarPreview || avatarPreview === currentFallback) {
+      setAvatarPreview(getGenderFallback(value));
+    }
+    setGenderOpen(false);
   };
 
   // 🔹 UPLOAD IMAGE (R2)
@@ -402,14 +413,14 @@ const EditProfile = () => {
             setCoverPreview(cacheUrl);
           }
 
-          // 🔹 SAVE TO DATABASE IMMEDIATELY
+          // 🔹 SAVE TO DATABASE IMMEDIATELY (skip notification)
           const user = auth.currentUser;
           if (user) {
             const token = await user.getIdToken();
             try {
               const updatePayload = cropType === "profile" 
-                ? { image_name: uploadedUrl }
-                : { cover_image: uploadedUrl };
+                ? { image_name: uploadedUrl, skip_notification: true }
+                : { cover_image: uploadedUrl, skip_notification: true };
               
               await fetch(`${API_BASE}/profile/update`, {
                 method: "PUT",
@@ -466,7 +477,7 @@ const EditProfile = () => {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ image_name: null }),
+        body: JSON.stringify({ image_name: null, skip_notification: true }),
       });
 
       if (res.ok) {
@@ -497,7 +508,7 @@ const EditProfile = () => {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ cover_image: null }),
+        body: JSON.stringify({ cover_image: null, skip_notification: true }),
       });
 
       if (res.ok) {
@@ -676,6 +687,18 @@ const EditProfile = () => {
 
   useEffect(() => {
     return () => stopCameraStream();
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (!genderDropdownRef.current) return;
+      if (!genderDropdownRef.current.contains(event.target as Node)) {
+        setGenderOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   // Ensure stream attaches once modal renders
@@ -1055,23 +1078,47 @@ const EditProfile = () => {
           {/* GENDER */}
           <div>
             <label className="block text-sm font-medium mb-2 text-foreground">Gender</label>
-            <div className="relative group">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 transition-colors text-muted-foreground group-hover:text-orange-500 group-focus-within:text-orange-500 z-10">
-                <Users className="w-5 h-5" />
-              </span>
-              <select
-                name="gender"
-                value={formData.gender}
-                onChange={handleChange}
-                className="w-full pl-12 pr-10 py-3 rounded-xl text-sm bg-muted/50 border-2 border-border hover:bg-muted/70 hover:border-orange-500/50 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all appearance-none cursor-pointer font-medium text-foreground [&>option]:bg-background [&>option]:text-foreground"
+            <div ref={genderDropdownRef} className="relative">
+              <button
+                type="button"
+                onClick={() => setGenderOpen((open) => !open)}
+                className="w-full pl-12 pr-10 py-3 rounded-xl text-sm bg-background/80 border-2 border-border hover:bg-background hover:border-orange-500/50 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all cursor-pointer font-medium text-foreground text-left"
               >
-                <option value="">Select your gender</option>
-                <option value="male">Male</option>
-                <option value="female">Female</option>
-              </select>
-              <span className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground group-hover:text-orange-500 group-focus-within:text-orange-500 transition-colors">
-                <ChevronDown className="w-5 h-5" />
-              </span>
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground">
+                  <Users className="w-5 h-5" />
+                </span>
+                {formData.gender === "male"
+                  ? "Male"
+                  : formData.gender === "female"
+                    ? "Female"
+                    : "Select your gender"}
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground">
+                  <ChevronDown className={`w-5 h-5 transition-transform ${genderOpen ? "rotate-180" : ""}`} />
+                </span>
+              </button>
+
+              {genderOpen && (
+                <div className="absolute z-20 mt-2 w-full rounded-xl border border-border bg-card/95 backdrop-blur shadow-xl overflow-hidden">
+                  {[
+                    { value: "", label: "Select your gender" },
+                    { value: "male", label: "Male" },
+                    { value: "female", label: "Female" },
+                  ].map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => handleGenderSelect(option.value)}
+                      className={`w-full px-4 py-2.5 text-left text-sm transition-colors ${
+                        formData.gender === option.value
+                          ? "bg-orange-500/20 text-orange-200"
+                          : "text-foreground hover:bg-orange-500/10"
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 

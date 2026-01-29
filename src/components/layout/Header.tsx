@@ -19,7 +19,7 @@ export function Header() {
     if (!user) return;
     try {
       const token = await user.getIdToken();
-      const res = await fetch(`${API_BASE}/notifications/recent?hours=24&limit=100`, {
+      const res = await fetch(`${API_BASE}/notifications/recent?hours=720&limit=100`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 

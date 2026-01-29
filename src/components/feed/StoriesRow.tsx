@@ -171,7 +171,7 @@ export function StoriesRow() {
                 background: 'linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%)'
               }}>
                 <img
-                  src={auth.currentUser?.photoURL || 'https://via.placeholder.com/40'}
+                  src={auth.currentUser?.photoURL || 'https://placehold.co/40x40/cccccc/999999?text=User'}
                   alt="Your story"
                   className="w-full h-full rounded-full object-cover border-2 border-white"
                 />
@@ -233,7 +233,7 @@ export function StoriesRow() {
                   }}
                 >
                   <img
-                    src={userGroup.user_image || 'https://via.placeholder.com/40'}
+                    src={userGroup.user_image || 'https://placehold.co/40x40/cccccc/999999?text=User'}
                     alt={userGroup.username}
                     className="w-full h-full rounded-full object-cover border-2 border-white"
                   />

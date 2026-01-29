@@ -1,8 +1,9 @@
 import React, { useState, useRef } from 'react';
-import { X, Plus, Type, Smile, Download } from 'lucide-react';
+import { X, Plus, Type, Smile, Download, Camera, Video, Volume2, VolumeX, Scissors } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { auth } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
+import { Toaster } from '@/components/ui/toaster';
 
 interface StoryFile {
   file: File;
@@ -16,6 +17,7 @@ const StoryUpload: React.FC = () => {
   const imageInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
   const textOverlayRef = useRef<HTMLDivElement>(null);
+  const videoPreviewRef = useRef<HTMLVideoElement>(null);
   
   const [step, setStep] = useState<'select' | 'edit'>('select');
   const [mediaType, setMediaType] = useState<'image' | 'video' | null>(null);
@@ -28,6 +30,10 @@ const StoryUpload: React.FC = () => {
   const [isDraggingText, setIsDraggingText] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [draggingEmojiIndex, setDraggingEmojiIndex] = useState<number | null>(null);
+  const [isMuted, setIsMuted] = useState(false);
+  const [showTrimControls, setShowTrimControls] = useState(false);
+  const [trimStart, setTrimStart] = useState(0);
+  const [trimEnd, setTrimEnd] = useState(30);
 
   const emojis = ['❤️', '😂', '😍', '😘', '🔥', '✨', '😎', '🤩', '😭', '😱', '🎉', '🎊'];
 
@@ -93,6 +99,7 @@ const StoryUpload: React.FC = () => {
         // Video is valid, proceed with upload
         const preview = URL.createObjectURL(file);
         setStory({ file, preview, type: 'video' });
+        setTrimEnd(Math.min(video.duration, 30));
         setStep('edit');
       };
       video.onerror = () => {
@@ -327,8 +334,27 @@ const StoryUpload: React.FC = () => {
       // Build query parameters
       const params = new URLSearchParams();
       params.append('media_type', story.type);
-      params.append('duration', story.type === 'image' ? '10' : '30');
+      
+      // Use actual trim duration for videos
+      const videoDuration = story.type === 'video' ? Math.round(trimEnd - trimStart) : 10;
+      params.append('duration', videoDuration.toString());
       params.append('visibility', 'public');
+      
+      // Add trim info for videos
+      if (story.type === 'video') {
+        params.append('trim_start', trimStart.toFixed(1));
+        params.append('trim_end', trimEnd.toFixed(1));
+      }
+      
+      // Add text overlay for videos (images already have it baked in)
+      if (story.type === 'video' && text) {
+        params.append('text', text);
+      }
+      
+      // Add emoji stickers for videos (images already have them baked in)
+      if (story.type === 'video' && emojiStickers.length > 0) {
+        params.append('emoji_stickers', JSON.stringify(emojiStickers));
+      }
 
       const formData = new FormData();
       formData.append('file', fileToUpload);
@@ -351,13 +377,23 @@ const StoryUpload: React.FC = () => {
       const data = await response.json();
       console.log('Story uploaded successfully:', data);
       
+      // Get the new story ID from response
+      const storyId = data.story_id;
+      
       // Success notification
       toast({
         title: "Story posted! 🎉",
         description: "Your story is now live for your followers",
       });
       
-      setTimeout(() => navigate('/'), 1000);
+      // Navigate directly to the new story viewer
+      setTimeout(() => {
+        if (storyId) {
+          navigate(`/story/view/${storyId}`);
+        } else {
+          navigate('/');
+        }
+      }, 500);
     } catch (error) {
       console.error('Error uploading story:', error);
       toast({
@@ -394,24 +430,24 @@ const StoryUpload: React.FC = () => {
             {/* Image Option */}
             <button
               onClick={() => handleMediaSelect('image')}
-              className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white py-4 px-6 rounded-2xl font-semibold flex items-center justify-center gap-3 transition transform hover:scale-105 active:scale-95"
+              className="w-full bg-gradient-to-r from-orange-500 to-yellow-400 hover:from-orange-600 hover:to-yellow-500 text-white py-4 px-6 rounded-2xl font-semibold flex items-center justify-center gap-3 transition transform hover:scale-105 active:scale-95 shadow-lg shadow-orange-500/30"
             >
-              <span className="text-2xl">🖼️</span>
+              <Camera className="w-7 h-7" />
               <div className="text-left">
                 <div className="text-base lg:text-lg">Photo Story</div>
-                <div className="text-xs lg:text-sm font-normal opacity-80">Play for 10 seconds</div>
+                <div className="text-xs lg:text-sm font-normal opacity-90">Play for 10 seconds</div>
               </div>
             </button>
 
             {/* Video Option */}
             <button
               onClick={() => handleMediaSelect('video')}
-              className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white py-4 px-6 rounded-2xl font-semibold flex items-center justify-center gap-3 transition transform hover:scale-105 active:scale-95"
+              className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white py-4 px-6 rounded-2xl font-semibold flex items-center justify-center gap-3 transition transform hover:scale-105 active:scale-95 shadow-lg shadow-blue-500/30"
             >
-              <span className="text-2xl">🎥</span>
+              <Video className="w-7 h-7" />
               <div className="text-left">
                 <div className="text-base lg:text-lg">Video Story</div>
-                <div className="text-xs lg:text-sm font-normal opacity-80">Max 30 seconds</div>
+                <div className="text-xs lg:text-sm font-normal opacity-90">Max 30 seconds</div>
               </div>
             </button>
           </div>
@@ -486,6 +522,174 @@ const StoryUpload: React.FC = () => {
         {/* Story Preview Container - Desktop: 9:16 aspect ratio, Mobile: full screen */}
         <div className="relative w-full h-full lg:h-full lg:max-w-md lg:aspect-[9/16] lg:rounded-2xl overflow-hidden bg-black lg:shadow-2xl">
           
+          {/* Video Timeline Trimmer - Top */}
+          {story?.type === 'video' && (
+            <div className="absolute top-0 left-0 right-0 z-30 bg-black/80 backdrop-blur-sm">
+              <div className="px-4 py-3">
+                <div className="flex items-center gap-3 mb-2">
+                  <button
+                    onClick={() => {
+                      const newMutedState = !isMuted;
+                      setIsMuted(newMutedState);
+                      if (videoPreviewRef.current) {
+                        videoPreviewRef.current.muted = newMutedState;
+                      }
+                    }}
+                    className="bg-white/20 hover:bg-white/30 text-white p-2 rounded-full transition"
+                  >
+                    {isMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
+                  </button>
+                  <span className="text-white text-xs font-medium">
+                    {trimStart.toFixed(1)}s - {trimEnd.toFixed(1)}s • {(trimEnd - trimStart).toFixed(1)}s
+                  </span>
+                </div>
+                
+                {/* Trim Range Slider */}
+                <div className="relative h-12 bg-gray-700 rounded-lg overflow-hidden">
+                  {/* Dimmed areas outside trim range */}
+                  <div 
+                    className="absolute top-0 left-0 bottom-0 bg-black/60"
+                    style={{
+                      width: `${(trimStart / (videoPreviewRef.current?.duration || 30)) * 100}%`
+                    }}
+                  />
+                  <div 
+                    className="absolute top-0 right-0 bottom-0 bg-black/60"
+                    style={{
+                      width: `${100 - (trimEnd / (videoPreviewRef.current?.duration || 30)) * 100}%`
+                    }}
+                  />
+                  
+                  {/* Selected/Active trim range */}
+                  <div 
+                    className="absolute top-0 bottom-0 border-t-2 border-b-2 border-orange-500"
+                    style={{
+                      left: `${(trimStart / (videoPreviewRef.current?.duration || 30)) * 100}%`,
+                      right: `${100 - (trimEnd / (videoPreviewRef.current?.duration || 30)) * 100}%`
+                    }}
+                  />
+                  
+                  {/* Left trim handle */}
+                  <div 
+                    className="absolute top-0 bottom-0 w-2 bg-orange-500 cursor-ew-resize z-30 hover:w-3 transition-all"
+                    style={{
+                      left: `${(trimStart / (videoPreviewRef.current?.duration || 30)) * 100}%`,
+                    }}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      const startX = e.clientX;
+                      const startTrim = trimStart;
+                      const duration = videoPreviewRef.current?.duration || 30;
+                      const sliderWidth = e.currentTarget.parentElement?.offsetWidth || 1;
+                      
+                      const handleMove = (moveEvent: MouseEvent) => {
+                        const deltaX = moveEvent.clientX - startX;
+                        const deltaTime = (deltaX / sliderWidth) * duration;
+                        const newTrimStart = Math.max(0, Math.min(trimEnd - 0.5, startTrim + deltaTime));
+                        setTrimStart(newTrimStart);
+                        if (videoPreviewRef.current) {
+                          videoPreviewRef.current.currentTime = newTrimStart;
+                        }
+                      };
+                      
+                      const handleUp = () => {
+                        document.removeEventListener('mousemove', handleMove);
+                        document.removeEventListener('mouseup', handleUp);
+                      };
+                      
+                      document.addEventListener('mousemove', handleMove);
+                      document.addEventListener('mouseup', handleUp);
+                    }}
+                    onTouchStart={(e) => {
+                      const startX = e.touches[0].clientX;
+                      const startTrim = trimStart;
+                      const duration = videoPreviewRef.current?.duration || 30;
+                      const sliderWidth = e.currentTarget.parentElement?.offsetWidth || 1;
+                      
+                      const handleMove = (moveEvent: TouchEvent) => {
+                        const deltaX = moveEvent.touches[0].clientX - startX;
+                        const deltaTime = (deltaX / sliderWidth) * duration;
+                        const newTrimStart = Math.max(0, Math.min(trimEnd - 0.5, startTrim + deltaTime));
+                        setTrimStart(newTrimStart);
+                        if (videoPreviewRef.current) {
+                          videoPreviewRef.current.currentTime = newTrimStart;
+                        }
+                      };
+                      
+                      const handleEnd = () => {
+                        document.removeEventListener('touchmove', handleMove);
+                        document.removeEventListener('touchend', handleEnd);
+                      };
+                      
+                      document.addEventListener('touchmove', handleMove);
+                      document.addEventListener('touchend', handleEnd);
+                    }}
+                  >
+                    <div className="absolute inset-y-1/3 left-1/2 transform -translate-x-1/2 w-0.5 bg-white rounded-full" />
+                  </div>
+                  
+                  {/* Right trim handle */}
+                  <div 
+                    className="absolute top-0 bottom-0 w-2 bg-orange-500 cursor-ew-resize z-30 hover:w-3 transition-all"
+                    style={{
+                      left: `${(trimEnd / (videoPreviewRef.current?.duration || 30)) * 100}%`,
+                      transform: 'translateX(-100%)'
+                    }}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      const startX = e.clientX;
+                      const startTrim = trimEnd;
+                      const duration = videoPreviewRef.current?.duration || 30;
+                      const sliderWidth = e.currentTarget.parentElement?.offsetWidth || 1;
+                      
+                      const handleMove = (moveEvent: MouseEvent) => {
+                        const deltaX = moveEvent.clientX - startX;
+                        const deltaTime = (deltaX / sliderWidth) * duration;
+                        const newTrimEnd = Math.max(trimStart + 0.5, Math.min(duration, Math.min(trimStart + 30, startTrim + deltaTime)));
+                        setTrimEnd(newTrimEnd);
+                      };
+                      
+                      const handleUp = () => {
+                        document.removeEventListener('mousemove', handleMove);
+                        document.removeEventListener('mouseup', handleUp);
+                      };
+                      
+                      document.addEventListener('mousemove', handleMove);
+                      document.addEventListener('mouseup', handleUp);
+                    }}
+                    onTouchStart={(e) => {
+                      const startX = e.touches[0].clientX;
+                      const startTrim = trimEnd;
+                      const duration = videoPreviewRef.current?.duration || 30;
+                      const sliderWidth = e.currentTarget.parentElement?.offsetWidth || 1;
+                      
+                      const handleMove = (moveEvent: TouchEvent) => {
+                        const deltaX = moveEvent.touches[0].clientX - startX;
+                        const deltaTime = (deltaX / sliderWidth) * duration;
+                        const newTrimEnd = Math.max(trimStart + 0.5, Math.min(duration, Math.min(trimStart + 30, startTrim + deltaTime)));
+                        setTrimEnd(newTrimEnd);
+                      };
+                      
+                      const handleEnd = () => {
+                        document.removeEventListener('touchmove', handleMove);
+                        document.removeEventListener('touchend', handleEnd);
+                      };
+                      
+                      document.addEventListener('touchmove', handleMove);
+                      document.addEventListener('touchend', handleEnd);
+                    }}
+                  >
+                    <div className="absolute inset-y-1/3 left-1/2 transform -translate-x-1/2 w-0.5 bg-white rounded-full" />
+                  </div>
+                  
+                  <div className="absolute inset-0 flex items-center justify-center text-white text-xs font-medium pointer-events-none">
+                    Drag handles to trim
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Media Preview */}
           <div className="absolute inset-0 flex items-center justify-center bg-black">
             {story?.type === 'image' ? (
@@ -496,9 +700,13 @@ const StoryUpload: React.FC = () => {
               />
             ) : (
               <video
+                ref={videoPreviewRef}
                 src={story?.preview}
                 className="w-full h-full object-contain"
-                controls
+                autoPlay
+                muted={isMuted}
+                loop
+                playsInline
               />
             )}
 
@@ -506,7 +714,7 @@ const StoryUpload: React.FC = () => {
         {text && (
           <div
             ref={textOverlayRef}
-            className={`absolute bg-black/60 backdrop-blur-sm text-white p-3 rounded-lg max-w-xs z-20 select-none transition-all duration-100 ${
+            className={`absolute bg-black/60 backdrop-blur-sm text-white p-3 rounded-lg max-w-xs z-30 select-none transition-all duration-100 ${
               isDraggingText 
                 ? 'cursor-grabbing bg-black/80 scale-110 shadow-2xl' 
                 : 'cursor-grab hover:bg-black/70 hover:scale-105'
@@ -530,8 +738,8 @@ const StoryUpload: React.FC = () => {
             key={idx}
             className={`absolute text-4xl lg:text-5xl select-none transition-all duration-100 ${
               draggingEmojiIndex === idx
-                ? 'cursor-grabbing scale-125 opacity-90 z-30'
-                : 'cursor-grab hover:scale-110 z-20'
+                ? 'cursor-grabbing scale-125 opacity-90 z-40'
+                : 'cursor-grab hover:scale-110 z-35'
             }`}
             style={{
               left: `${sticker.x}%`,
@@ -547,7 +755,7 @@ const StoryUpload: React.FC = () => {
         ))}
 
         {/* Tools Overlay */}
-        <div className="absolute top-4 left-4 right-4 flex gap-2">
+        <div className="absolute top-4 left-4 right-4 flex gap-2 z-40" style={{ marginTop: story?.type === 'video' ? '80px' : '0' }}>
           <button
             onClick={() => setShowEmojiPicker(!showEmojiPicker)}
             className="bg-white/20 hover:bg-white/30 text-white p-3 rounded-full backdrop-blur-sm transition"
@@ -559,7 +767,7 @@ const StoryUpload: React.FC = () => {
 
         {/* Emoji Picker */}
         {showEmojiPicker && (
-          <div className="absolute top-16 left-4 bg-gray-800 rounded-lg p-3 grid grid-cols-4 gap-2 w-48">
+          <div className="absolute top-20 left-4 bg-gray-800 rounded-lg p-3 grid grid-cols-4 gap-2 w-48 z-50 shadow-2xl" style={{ marginTop: story?.type === 'video' ? '80px' : '0' }}>
             {emojis.map((emoji) => (
               <button
                 key={emoji}
@@ -588,18 +796,24 @@ const StoryUpload: React.FC = () => {
             <button
               onClick={handleUpload}
               disabled={uploading}
-              className={`w-full py-3 rounded-lg font-semibold flex items-center justify-center gap-2 transition ${
+              className={`relative w-full py-3 rounded-lg font-semibold flex items-center justify-center gap-2 transition overflow-hidden ${
                 uploading
                   ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
-                  : 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white'
+                  : 'bg-gradient-to-r from-orange-500 to-yellow-400 hover:from-orange-600 hover:to-yellow-500 text-white shadow-lg shadow-orange-500/30'
               }`}
             >
-              <Download size={20} />
-              {uploading ? 'Uploading...' : 'Share Story'}
+              {/* Liquid fill animation */}
+              {uploading && (
+                <div className="absolute inset-0 bg-gradient-to-r from-orange-500 to-yellow-400 animate-fill-up origin-bottom" />
+              )}
+              <Download size={20} className="relative z-10" />
+              <span className="relative z-10">{uploading ? 'Uploading...' : 'Share Story'}</span>
             </button>
           </div>
         </div>
       </div>
+      {/* Toast Notifications */}
+      <Toaster />
     </div>
   );
 };

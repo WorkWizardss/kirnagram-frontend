@@ -12,7 +12,7 @@ import {
   Calendar,
   BadgeCheck,
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import avatar2 from "@/assets/avatar-2.jpg";
 import profileIcon from "@/assets/profileicon.png";
@@ -35,9 +35,11 @@ const emptyMessages: Record<string, string> = {
 };
 
 const Profile = () => {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("posts");
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [myStories, setMyStories] = useState<any[]>([]);
   
 
   const [stats, setStats] = useState({
@@ -84,6 +86,23 @@ const Profile = () => {
       const statsData = await statsRes.json();
       setStats(statsData);
 
+      // Fetch my stories
+      const storiesRes = await fetch("http://localhost:8000/stories/my-stories", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (storiesRes.ok) {
+        const storiesData = await storiesRes.json();
+        const stories = Array.isArray(storiesData) ? storiesData : [];
+        setMyStories(stories);
+        console.log("📖 My stories loaded:", stories.length, stories);
+      } else {
+        console.error("❌ Failed to fetch stories:", storiesRes.status);
+        setMyStories([]);
+      }
+
     } catch (error) {
       console.error("Failed to load profile:", error);
     } finally {
@@ -116,25 +135,31 @@ const Profile = () => {
     );
   }
 
-  const fallbackAvatar = profile.image_name && 
-    profile.image_name.trim() !== "" && 
-    !profile.image_name.includes("default") &&
-    !profile.image_name.includes("placeholder") &&
-    !profile.image_name.startsWith("blob:")  // ✅ Filter out blob URLs
-    ? `${profile.image_name}?t=${Date.now()}`
+  const isValidRemoteImage = (url?: string) =>
+    typeof url === "string" &&
+    url.trim() !== "" &&
+    url.startsWith("http") &&
+    !url.includes("default") &&
+    !url.includes("placeholder") &&
+    !url.startsWith("blob:");
+
+  const withCacheBust = (url: string) =>
+    `${url}${url.includes("?") ? "&" : "?"}t=${Date.now()}`;
+
+  const fallbackAvatar = isValidRemoteImage(profile.image_name)
+    ? withCacheBust(profile.image_name)
     : profile.gender === "male"
       ? maleIcon
       : profile.gender === "female"
         ? femaleIcon
         : profileIcon;
 
-  const coverImage = profile.cover_image && 
-    profile.cover_image.trim() !== "" &&
-    !profile.cover_image.includes("default") &&
-    !profile.cover_image.includes("placeholder") &&
-    !profile.cover_image.startsWith("blob:")  // ✅ Filter out blob URLs
-    ? `${profile.cover_image}?t=${Date.now()}`
+  const coverImage = isValidRemoteImage(profile.cover_image)
+    ? withCacheBust(profile.cover_image)
     : heroBanner;
+
+  // Debug story ring
+  console.log("🎯 Rendering profile with myStories.length:", myStories.length);
 
   return (
     <MainLayout showRightSidebar={false}>
@@ -155,12 +180,24 @@ const Profile = () => {
           <div className="flex items-end justify-between mb-4">
             {/* Avatar */}
             <div className="relative">
-              <div className="w-24 h-24 sm:w-32 sm:h-32 md:w-36 md:h-36 rounded-full p-1 bg-gradient-to-r from-primary to-secondary">
+              <div 
+                className={cn(
+                  "w-24 h-24 sm:w-32 sm:h-32 md:w-36 md:h-36 rounded-full p-1",
+                  myStories.length > 0 
+                    ? "bg-gradient-to-tr from-orange-500 via-pink-500 to-yellow-400 cursor-pointer hover:scale-105 transition-transform"
+                    : "bg-gradient-to-r from-primary to-secondary"
+                )}
+                onClick={() => {
+                  if (myStories.length > 0 && myStories[0]?.story_id) {
+                    navigate(`/story/view/${myStories[0].story_id}`);
+                  }
+                }}
+              >
                  <img
-                   src={(fallbackAvatar && typeof fallbackAvatar === 'string' && fallbackAvatar.startsWith('http') ? `${fallbackAvatar}?t=${Date.now()}` : (fallbackAvatar || avatar2))}
+                   src={fallbackAvatar || avatar2}
                    alt="Profile"
-                    className="w-full h-full rounded-full object-cover border-4 border-background"
-                    />
+                   className="w-full h-full rounded-full object-cover border-4 border-background"
+                 />
 
               </div>
               <div className="absolute bottom-1 right-1 sm:bottom-2 sm:right-2 w-5 h-5 sm:w-6 sm:h-6 bg-green-500 rounded-full border-2 border-background" />
