@@ -11,8 +11,12 @@ import {
   MapPin,
   Calendar,
   BadgeCheck,
+  Youtube,
+  Facebook,
+  Instagram,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
+import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import avatar2 from "@/assets/avatar-2.jpg";
 import profileIcon from "@/assets/profileicon.png";
@@ -198,23 +202,29 @@ const Profile = () => {
                    alt="Profile"
                    className="w-full h-full rounded-full object-cover border-4 border-background"
                  />
-
               </div>
               <div className="absolute bottom-1 right-1 sm:bottom-2 sm:right-2 w-5 h-5 sm:w-6 sm:h-6 bg-green-500 rounded-full border-2 border-background" />
             </div>
 
-            {/* Action Buttons - Right side on mobile */}
+            {/* Action Buttons */}
             <div className="flex gap-2 mb-2">
-              <Link
+               <Link
                 to="/edit-profile"
                 className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-primary to-cyan-400 text-primary-foreground rounded-xl font-medium text-sm hover:shadow-lg hover:shadow-primary/30 transition-all"
               >
                 <Edit className="w-4 h-4" />
                 <span className="hidden sm:inline">Edit</span>
               </Link>
-              <button className="flex items-center gap-2 px-4 py-2 glass-card hover:bg-muted/50 rounded-xl font-medium text-sm transition-all">
-                <Share2 className="w-4 h-4" />
-                <span className="hidden sm:inline">Share</span>
+              <button
+                className="flex items-center gap-2 px-4 py-2 glass-card hover:bg-muted/50 rounded-xl font-medium text-sm transition-all"
+                title="Share Profile"
+                onClick={() => {
+                  const url = window.location.origin + "/profile";
+                  navigator.clipboard.writeText(url);
+                  toast({ title: "Profile link copied!", description: url });
+                }}
+              >
+                <Share2 className="w-5 h-5 text-white" />
               </button>
               <Link
                 to="/settings"
@@ -229,11 +239,14 @@ const Profile = () => {
           <div className="mb-4">
             <div className="flex items-center gap-2 mb-1">
               <h1 className="text-xl sm:text-2xl font-display font-bold">{profile.full_name}</h1>
-              <BadgeCheck className="w-5 h-5 sm:w-6 sm:h-6 text-primary fill-primary/20" />
             </div>
             <div className="flex items-center gap-2">
-              <span className="badge-pro">PRO</span>
               <p className="text-muted-foreground text-sm">@{profile.username || profile.full_name?.toLowerCase().replace(" ", "")}</p>
+              {Boolean(profile.is_creator) && (
+                <span className="flex items-center gap-1 px-2 py-0.5 bg-gradient-to-r from-primary/20 to-secondary/20 text-primary text-xs font-bold rounded-full">
+                  <BadgeCheck className="w-4 h-4 text-primary fill-primary/20" />
+                </span>
+              )}
             </div>
           </div>
 
@@ -260,6 +273,39 @@ const Profile = () => {
     <p className="text-xs sm:text-sm text-muted-foreground">Following</p>
   </Link>
 </div>
+          {/* Social Media Icons Row */}
+          <div className="flex gap-4 justify-center py-3  py-4 border-y border-border">
+            {profile.instagram && (
+              <a href={profile.instagram} target="_blank" rel="noopener noreferrer" title="Instagram">
+                <Instagram className="w-6 h-6 text-pink-500 hover:scale-110 transition-transform" />
+              </a>
+            )}
+            {profile.youtube && (
+              <a href={profile.youtube} target="_blank" rel="noopener noreferrer" title="YouTube">
+                <Youtube className="w-6 h-6 text-red-500 hover:scale-110 transition-transform" />
+              </a>
+            )}
+            {profile.facebook && (
+              <a href={profile.facebook} target="_blank" rel="noopener noreferrer" title="Facebook">
+                <Facebook className="w-6 h-6 text-blue-500 hover:scale-110 transition-transform" />
+              </a>
+            )}
+            {profile.x && (
+              <a href={profile.x} target="_blank" rel="noopener noreferrer" title="X (Twitter)">
+                <svg className="w-6 h-6 text-sky-500 hover:scale-110 transition-transform" viewBox="0 0 24 24"><path d="M22.46 5.924c-.793.352-1.645.59-2.54.698a4.48 4.48 0 0 0 1.963-2.475 8.94 8.94 0 0 1-2.828 1.082A4.48 4.48 0 0 0 16.11 4c-2.48 0-4.49 2.01-4.49 4.49 0 .352.04.695.116 1.022C7.728 9.36 4.1 7.6 1.67 4.98c-.386.664-.607 1.437-.607 2.26 0 1.56.795 2.94 2.005 3.75a4.48 4.48 0 0 1-2.034-.563v.057c0 2.18 1.55 4 3.6 4.42-.377.104-.775.16-1.185.16-.29 0-.57-.028-.845-.08.57 1.78 2.23 3.08 4.2 3.12A8.98 8.98 0 0 1 2 19.54a12.7 12.7 0 0 0 6.88 2.02c8.26 0 12.78-6.84 12.78-12.78 0-.195-.004-.39-.013-.583A9.1 9.1 0 0 0 24 4.59a8.98 8.98 0 0 1-2.54.698z"/></svg>
+              </a>
+            )}
+            {profile.linkedin && (
+              <a href={profile.linkedin} target="_blank" rel="noopener noreferrer" title="LinkedIn">
+                <svg className="w-6 h-6 text-blue-700 hover:scale-110 transition-transform" viewBox="0 0 24 24"><path d="M19 0h-14c-2.76 0-5 2.24-5 5v14c0 2.76 2.24 5 5 5h14c2.76 0 5-2.24 5-5v-14c0-2.76-2.24-5-5-5zm-8.5 19h-3v-8h3v8zm-1.5-9.268c-.966 0-1.75-.784-1.75-1.75s.784-1.75 1.75-1.75 1.75.784 1.75 1.75-.784 1.75-1.75 1.75zm13.5 9.268h-3v-4.5c0-1.07-.93-2-2-2s-2 .93-2 2v4.5h-3v-8h3v1.085c.41-.63 1.36-1.085 2.5-1.085 1.93 0 3.5 1.57 3.5 3.5v4.5z"/></svg>
+              </a>
+            )}
+            {profile.whatsapp && (
+              <a href={profile.whatsapp} target="_blank" rel="noopener noreferrer" title="WhatsApp">
+                <svg className="w-6 h-6 text-green-600 hover:scale-110 transition-transform" viewBox="0 0 32 32"><path d="M16 3C9.373 3 4 8.373 4 15c0 6.627 5.373 12 12 12s12-5.373 12-12c0-6.627-5.373-12-12-12zm0 22c-5.523 0-10-4.477-10-10S10.477 5 16 5s10 4.477 10 10-4.477 10-10 10zm-1-15h2v6h-2zm0 8h2v2h-2z"/></svg>
+              </a>
+            )}
+          </div>
           {/* Bio */}
           <div className="mt-4 space-y-3">
             <p className="text-foreground text-sm sm:text-base">{profile.bio || "No bio added yet"}</p>
@@ -288,10 +334,7 @@ const Profile = () => {
                 <Calendar className="w-4 h-4" />
                 Joined {profile.created_at ? new Date(profile.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : 'Recently'}
               </span>
-              <span className="flex items-center gap-1">
-                <Award className="w-4 h-4 text-primary" />
-                Top 1% Creator
-              </span>
+             
             </div>
           </div>
         </div>

@@ -4,7 +4,9 @@ import { Home, Compass, Plus, Sparkles, User, Menu, X, UserPlus } from "lucide-r
 import { cn } from "@/lib/utils";
 import { auth } from "@/firebase";
 import avatar2 from "@/assets/avatar-2.jpg";
-
+import {
+  LogOut,
+} from "lucide-react";
 interface NavItem {
   icon: React.ElementType;
   label: string;
@@ -128,36 +130,18 @@ export function Sidebar() {
           </div>
         </nav>
 
-        {/* User Profile */}
-        <div className="p-4 border-t border-border shrink-0">
-          <div
-            onClick={() => {
-              if (myStories.length > 0 && myStories[0]?.story_id) {
-                navigate(`/story/view/${myStories[0].story_id}`);
-              } else {
-                navigate("/profile");
-              }
-              setIsOpen(false);
-            }}
-            className="flex items-center gap-3 p-2 rounded-xl hover:bg-muted/50 transition-colors cursor-pointer"
-          >
-            <div className={cn(
-              "p-[2px] rounded-full transition-all",
-              myStories.length > 0 
-                ? "bg-gradient-to-tr from-orange-500 via-pink-500 to-yellow-400" 
-                : "bg-gradient-to-r from-primary to-primary/70"
-            )}>
-              <img
-                src={avatar2}
-                alt="User"
-                className="w-10 h-10 rounded-full object-cover"
-              />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-semibold text-sm truncate text-foreground">Elara Vance</p>
-              <p className="text-xs text-muted-foreground truncate">@elaravance</p>
-            </div>
-          </div>
+      
+        <div className="p-4 border-t border-border shrink-0 flex items-center">
+          <button
+            onClick={async () => {
+              await auth.signOut();
+                navigate("/login");
+              }}
+              className="flex items-center gap-3 px-4 py-2 rounded-xl text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all duration-300 w-full"
+              >
+              <LogOut className="w-5 h-5" />
+            <span className="font-medium">Log out</span>
+          </button>
         </div>
       </aside>
     </>

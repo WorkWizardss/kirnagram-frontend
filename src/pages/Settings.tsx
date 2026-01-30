@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
+    ArrowLeft,
   User,
   Bell,
   Shield,
@@ -171,6 +172,14 @@ const Settings = () => {
   return (
     <MainLayout showRightSidebar={false}>
       <div className="max-w-2xl mx-auto pb-20 md:pb-0 overflow-x-hidden">
+        <button
+          type="button"
+          onClick={() => navigate(-1)}
+          className="p-2 rounded-xl hover:bg-muted/50 transition-colors mb-2 mt-4 ml-2"
+          aria-label="Back"
+        >
+          <ArrowLeft className="w-5 h-5 text-foreground" />
+        </button>
         <h1 className="text-xl font-display font-bold mb-4 px-2">{t('settings.title')}</h1>
         
         {settingsSections.map((section) => (

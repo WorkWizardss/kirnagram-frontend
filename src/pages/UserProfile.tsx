@@ -311,18 +311,52 @@ const UserProfile = () => {
             </div>
           </div>
 
-          {/* Name and Badge */}
+          {/* Name, Badge, and Social Icons (conditional) */}
           <div className="mb-3">
             <div className="flex items-center gap-2 mb-1">
               <h1 className="text-base sm:text-lg font-display font-bold">{profile.full_name}</h1>
               {profile.account_type === "private" && (
                 <span className="text-xs px-2 py-0.5 rounded bg-primary/10 text-primary font-medium">PRIVATE</span>
               )}
-              <BadgeCheck className="w-4 h-4 sm:w-5 sm:h-5 text-primary fill-primary/20" />
+              {Boolean(profile.is_creator) && (
+                <span className="flex items-center gap-1 px-2 py-0.5 bg-gradient-to-r from-primary/20 to-secondary/20 text-primary text-xs font-bold rounded-full">
+                  <BadgeCheck className="w-4 h-4 text-primary fill-primary/20" />
+                </span>
+              )}
             </div>
-            
             {/* Username */}
             <p className="text-muted-foreground text-sm">@{profile.username || profile.full_name?.toLowerCase().replace(" ", "")}</p>
+
+            {/* Social Media Icons for Creator (only if public or following) */}
+            {Boolean(profile.is_creator) && canViewFullProfile && (
+              <div className="flex gap-3 mt-2">
+  {profile.instagram && (
+    <a href={profile.instagram} target="_blank" rel="noopener noreferrer" className="hover:scale-110 transition-transform">
+      <img src="https://cdn.jsdelivr.net/npm/simple-icons@v9/icons/instagram.svg" alt="Instagram" className="w-5 h-5" style={{ fill: "#E4405F" }} />
+    </a>
+  )}
+  {profile.youtube && (
+    <a href={profile.youtube} target="_blank" rel="noopener noreferrer" className="hover:scale-110 transition-transform">
+      <img src="https://cdn.jsdelivr.net/npm/simple-icons@v9/icons/youtube.svg" alt="YouTube" className="w-5 h-5" style={{ fill: "#FF0000" }} />
+    </a>
+  )}
+  {profile.x && (
+    <a href={profile.x} target="_blank" rel="noopener noreferrer" className="hover:scale-110 transition-transform">
+      <img src="https://cdn.jsdelivr.net/npm/simple-icons@v9/icons/x.svg" alt="X" className="w-5 h-5" style={{ fill: "#000000" }} />
+    </a>
+  )}
+  {profile.facebook && (
+    <a href={profile.facebook} target="_blank" rel="noopener noreferrer" className="hover:scale-110 transition-transform">
+      <img src="https://cdn.jsdelivr.net/npm/simple-icons@v9/icons/facebook.svg" alt="Facebook" className="w-5 h-5" style={{ fill: "#1877F3" }} />
+    </a>
+  )}
+  {profile.website && (
+    <a href={profile.website} target="_blank" rel="noopener noreferrer" className="hover:scale-110 transition-transform">
+      <img src="https://cdn.jsdelivr.net/npm/simple-icons@v9/icons/link.svg" alt="Website" className="w-5 h-5" style={{ fill: '#6366F1' }} />
+    </a>
+  )}
+</div>
+            )}
           </div>
 
           {/* Action Buttons - Instagram Style */}

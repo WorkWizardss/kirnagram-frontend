@@ -72,20 +72,12 @@ export function Header() {
   return (
     <header className="sticky top-0 z-50 bg-card/95 backdrop-blur-xl border-b border-border w-full">
       <div className="flex items-center justify-between px-4 py-3 lg:px-6 w-full">
-        {/* Mobile Logo */}
-        <Link to="/" className="lg:hidden flex items-center gap-2 shrink-0">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center">
-            <span className="text-primary-foreground font-bold text-sm">K</span>
-          </div>
-          <span className="font-display font-bold text-base bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">Kiranagram</span>
-        </Link>
-
-        {/* Desktop Logo - Shows KIRANAGRAM */}
-        <Link to="/" className="hidden lg:flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center">
-            <span className="text-primary-foreground font-bold text-sm">K</span>
-          </div>
-          <span className="font-display font-bold text-lg bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">KIRANAGRAM</span>
+        {/* Logo - Only one visible at a time */}
+        <Link to="/" className="flex items-center gap-2 shrink-0">
+          
+          <span className="font-display font-bold text-base lg:text-lg bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
+            <span className="block lg:hidden">Kiranagram</span>
+          </span>
         </Link>
 
         {/* Spacer for desktop layout */}
@@ -120,14 +112,7 @@ export function Header() {
             )}
           </button>
           
-          {/* Profile - only on desktop */}
-          <Link to="/profile" className="hidden lg:block">
-            <img
-              src={avatar2}
-              alt="Profile"
-              className="w-9 h-9 rounded-full object-cover ring-2 ring-primary/50"
-            />
-          </Link>
+          
         </div>
       </div>
     </header>
