@@ -3,11 +3,9 @@ import { ChevronLeft, ChevronRight, Heart, Eye, MessageCircle, X, Trash2, Plus, 
 import { useNavigate, useParams } from 'react-router-dom';
 import { auth } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
-
-// Gender-based fallback icons
-const maleIcon = "https://cdn-icons-png.flaticon.com/512/3237/3237472.png";
-const femaleIcon = "https://cdn-icons-png.flaticon.com/512/3237/3237417.png";
-const profileIcon = "https://cdn-icons-png.flaticon.com/512/3237/3237483.png";
+import maleIcon from "@/assets/maleicon.png";
+import femaleIcon from "@/assets/femaleicon.png";
+import profileIcon from "@/assets/profileicon.png";
 
 interface Story {
   story_id: string;

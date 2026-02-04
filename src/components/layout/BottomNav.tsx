@@ -12,7 +12,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { icon: Home, label: "Feeds", path: "/" },
   { icon: Compass, label: "Discover", path: "/explore" },
-  { icon: Plus, label: "Create", path: "/create", isCreate: true },
+  { icon: Plus, label: "Add Post", path: "/create", isCreate: true },
   { icon: Sparkles, label: "AI Creator", path: "/ai-creator" },
   { icon: User, label: "Profile", path: "/profile" },
 ];

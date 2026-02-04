@@ -1,6 +1,6 @@
-import React, { useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { X, Plus, Type, Smile, Download, Camera, Video, Volume2, VolumeX, Scissors } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { auth } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toaster';
@@ -13,6 +13,7 @@ interface StoryFile {
 
 const StoryUpload: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
   const imageInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
@@ -34,6 +35,31 @@ const StoryUpload: React.FC = () => {
   const [showTrimControls, setShowTrimControls] = useState(false);
   const [trimStart, setTrimStart] = useState(0);
   const [trimEnd, setTrimEnd] = useState(30);
+
+  useEffect(() => {
+    const imageUrl = (location.state as any)?.imageUrl as string | undefined;
+    if (!imageUrl) return;
+
+    const loadFromUrl = async () => {
+      try {
+        const response = await fetch(imageUrl);
+        if (!response.ok) throw new Error("Failed to load image");
+        const blob = await response.blob();
+        const file = new File([blob], "story.jpg", { type: blob.type || "image/jpeg" });
+        const preview = URL.createObjectURL(blob);
+        setStory({ file, preview, type: 'image' });
+        setMediaType('image');
+        setStep('edit');
+      } catch {
+        toast({
+          title: "Unable to load story image",
+          variant: "destructive",
+        });
+      }
+    };
+
+    loadFromUrl();
+  }, [location.state, toast]);
 
   const emojis = ['❤️', '😂', '😍', '😘', '🔥', '✨', '😎', '🤩', '😭', '😱', '🎉', '🎊'];
 

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { MoreHorizontal, Heart, MessageCircle, Share, Bookmark, BadgeCheck, TrendingUp, Sparkles, X, Upload } from "lucide-react";
+import { MoreHorizontal, Heart, MessageCircle, Eye, BadgeCheck, TrendingUp, Sparkles, X, Upload, Share2, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface FeedPostProps {
@@ -14,13 +14,46 @@ interface FeedPostProps {
   image: string;
   tags?: string[];
   badge?: string;
+  caption?: string;
   likes?: number;
   comments?: number;
+  views?: number;
+  isLiked?: boolean;
+  showRemix?: boolean;
+  onAuthorClick?: () => void;
+  onPostClick?: () => void;
+  onLike?: () => void;
+  onOpenLikes?: () => void;
+  onOpenComments?: () => void;
+  onOpenViews?: () => void;
+  onShare?: () => void;
+  onAddToStory?: () => void;
 }
 
-export function FeedPost({ author, image, tags, badge, likes = 0, comments = 0 }: FeedPostProps) {
+export function FeedPost({
+  author,
+  image,
+  tags,
+  badge,
+  caption,
+  likes = 0,
+  comments = 0,
+  views = 0,
+  isLiked = false,
+  showRemix = false,
+  onAuthorClick,
+  onPostClick,
+  onLike,
+  onOpenLikes,
+  onOpenComments,
+  onOpenViews,
+  onShare,
+  onAddToStory,
+}: FeedPostProps) {
   const [showRemixModal, setShowRemixModal] = useState(false);
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [captionExpanded, setCaptionExpanded] = useState(false);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -35,10 +68,10 @@ export function FeedPost({ author, image, tags, badge, likes = 0, comments = 0 }
 
   return (
     <>
-      <div className="glass-card overflow-hidden animate-scale-in">
+      <div className="bg-background border-2 border-border/80 rounded-xl overflow-hidden shadow-sm shadow-black/10 animate-scale-in">
         {/* Author Header */}
         <div className="flex items-center justify-between p-4">
-          <div className="flex items-center gap-3">
+          <button className="flex items-center gap-3 text-left" onClick={onAuthorClick}>
             <div className="story-ring">
               <img
                 src={author.avatar}
@@ -63,14 +96,44 @@ export function FeedPost({ author, image, tags, badge, likes = 0, comments = 0 }
                 )}
               </div>
             </div>
-          </div>
-          <button className="p-2 hover:bg-muted rounded-lg transition-colors">
-            <MoreHorizontal className="w-5 h-5 text-muted-foreground" />
           </button>
+          <div className="relative">
+            <button
+              className="p-2 hover:bg-muted rounded-lg transition-colors"
+              onClick={() => setMenuOpen((prev) => !prev)}
+              aria-label="Post options"
+            >
+              <MoreHorizontal className="w-5 h-5 text-muted-foreground" />
+            </button>
+            {menuOpen && (
+              <div className="absolute right-0 top-10 w-44 rounded-xl border border-border bg-background shadow-lg overflow-hidden z-10">
+                <button
+                  className="w-full px-4 py-2 text-left text-sm hover:bg-muted flex items-center gap-2"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onShare?.();
+                  }}
+                >
+                  <Share2 className="w-4 h-4" />
+                  Share
+                </button>
+                <button
+                  className="w-full px-4 py-2 text-left text-sm hover:bg-muted flex items-center gap-2"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onAddToStory?.();
+                  }}
+                >
+                  <Plus className="w-4 h-4" />
+                  Add to Story
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Tags */}
-        {tags && tags.length > 0 && (
+        {showRemix && tags && tags.length > 0 && (
           <div className="px-4 pb-3 flex flex-wrap gap-2">
             {tags.map((tag) => (
               <span
@@ -90,61 +153,92 @@ export function FeedPost({ author, image, tags, badge, likes = 0, comments = 0 }
         )}
 
         {/* Image */}
-        <div className="relative">
+        <button className="relative w-full" onClick={onPostClick}>
           <img
             src={image}
             alt="Post"
             className="w-full aspect-[4/5] object-cover"
           />
-          {badge && (
+          {showRemix && badge && (
             <span className="absolute top-3 right-3 px-3 py-1 text-xs font-semibold bg-primary/90 text-primary-foreground rounded-full flex items-center gap-1">
               <span className="text-sm">🔥</span> {badge}
             </span>
           )}
           
           {/* Ethical AI Badge */}
-          <div className="absolute bottom-3 left-3">
-            <span className="px-3 py-1 text-xs font-medium bg-emerald-500/20 text-emerald-400 rounded-full border border-emerald-500/30 backdrop-blur-sm">
-              ✨ Ethical AI
-            </span>
-          </div>
-        </div>
+          {showRemix && (
+            <div className="absolute bottom-3 left-3">
+              <span className="px-3 py-1 text-xs font-medium bg-emerald-500/20 text-emerald-400 rounded-full border border-emerald-500/30 backdrop-blur-sm">
+                ✨ Ethical AI
+              </span>
+            </div>
+          )}
+        </button>
 
         {/* Remix This Style Button */}
-        <div className="px-4 py-3">
-          <button
-            onClick={() => setShowRemixModal(true)}
-            className="w-full flex items-center justify-center gap-2 py-3 bg-gradient-to-r from-secondary to-accent text-secondary-foreground rounded-xl font-semibold text-sm hover:shadow-lg hover:shadow-secondary/30 transition-all hover:scale-[1.02] active:scale-[0.98]"
-          >
-            <Sparkles className="w-5 h-5" />
-            Remix This Style
-            <span className="px-2 py-0.5 bg-white/20 rounded-full text-xs">4 Credits</span>
-          </button>
-        </div>
-
-        {/* Actions */}
-        <div className="px-4 pb-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <button className="flex items-center gap-2 text-muted-foreground hover:text-destructive transition-colors group">
-              <Heart className="w-5 h-5 group-hover:scale-110 transition-transform" />
-              <span className="text-sm">{likes > 0 ? likes : ""}</span>
-            </button>
-            <button className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors group">
-              <MessageCircle className="w-5 h-5 group-hover:scale-110 transition-transform" />
-              <span className="text-sm">{comments > 0 ? comments : ""}</span>
-            </button>
-            <button className="text-muted-foreground hover:text-foreground transition-colors">
-              <Share className="w-5 h-5" />
+        {showRemix && (
+          <div className="px-4 py-3">
+            <button
+              onClick={() => setShowRemixModal(true)}
+              className="w-full flex items-center justify-center gap-2 py-3 bg-gradient-to-r from-secondary to-accent text-secondary-foreground rounded-xl font-semibold text-sm hover:shadow-lg hover:shadow-secondary/30 transition-all hover:scale-[1.02] active:scale-[0.98]"
+            >
+              <Sparkles className="w-5 h-5" />
+              Remix This Style
+              <span className="px-2 py-0.5 bg-white/20 rounded-full text-xs">4 Credits</span>
             </button>
           </div>
-          <button className="text-muted-foreground hover:text-primary transition-colors">
-            <Bookmark className="w-5 h-5" />
+        )}
+
+        {/* Actions */}
+        <div className="px-4 pb-3 flex items-center gap-6 text-sm">
+          <button
+            className={`flex items-center gap-2 ${isLiked ? "text-red-500" : "text-foreground"}`}
+            onClick={onLike}
+          >
+            <Heart className="w-5 h-5" fill={isLiked ? "currentColor" : "none"} />
+            <span
+              onClick={(event) => {
+                event.stopPropagation();
+                onOpenLikes?.();
+              }}
+            >
+              {likes}
+            </span>
+          </button>
+          <button
+            className="flex items-center gap-2 text-foreground"
+            onClick={onOpenComments}
+          >
+            <MessageCircle className="w-5 h-5" />
+            <span>{comments}</span>
+          </button>
+          <button
+            className="flex items-center gap-2 text-foreground"
+            onClick={onOpenViews}
+          >
+            <Eye className="w-5 h-5" />
+            <span>{views}</span>
           </button>
         </div>
+        {caption && (
+          <div className="px-4 pb-4">
+            <p className={cn("text-sm text-muted-foreground", !captionExpanded && "line-clamp-2")}>
+              {caption}
+            </p>
+            {caption.length > 80 && (
+              <button
+                className="mt-1 text-xs text-primary hover:underline"
+                onClick={() => setCaptionExpanded((prev) => !prev)}
+              >
+                {captionExpanded ? "less" : "more"}
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Remix Modal */}
-      {showRemixModal && (
+      {showRemix && showRemixModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
           <div className="bg-card border border-border rounded-2xl w-full max-w-md p-6 animate-scale-in">
             <div className="flex items-center justify-between mb-6">

@@ -225,6 +225,24 @@ const Notifications = () => {
     return profileIcon;
   };
 
+  const getPostImage = (image?: string | null) => {
+    if (!image) return null;
+    const trimmed = image.trim();
+    if (!trimmed || !trimmed.startsWith("http") || trimmed.includes("placeholder") || trimmed.includes("default")) {
+      return null;
+    }
+    return trimmed;
+  };
+
+  const openPost = (notif: any) => {
+    if (!notif?.post_id || !notif?.post_owner_id) return;
+    navigate(`/posts/view/${notif.post_owner_id}`, {
+      state: {
+        initialPostId: notif.post_id,
+      },
+    });
+  };
+
   if (!mounted) return null;
 
   return (
@@ -308,10 +326,31 @@ const Notifications = () => {
                           {notif.description}
                         </p>
                       </Link>
+                      {notif.post_id && notif.post_owner_id && (
+                        <button
+                          onClick={() => openPost(notif)}
+                          className="mt-1 text-xs text-primary hover:underline"
+                        >
+                          View post
+                        </button>
+                      )}
                     </div>
 
                     {/* Right Side: Buttons or Time/Delete */}
                     <div className="flex items-center gap-2 flex-shrink-0">
+                      {getPostImage(notif.post_image) && (
+                        <button
+                          onClick={() => openPost(notif)}
+                          className="w-10 h-10 sm:w-12 sm:h-12 rounded-md overflow-hidden bg-muted border border-border/60"
+                          title="View post"
+                        >
+                          <img
+                            src={getPostImage(notif.post_image) || ""}
+                            alt="Post"
+                            className="w-full h-full object-cover"
+                          />
+                        </button>
+                      )}
                       {/* Follow Back Button */}
                       {shouldShowFollowBack && (
                         <button

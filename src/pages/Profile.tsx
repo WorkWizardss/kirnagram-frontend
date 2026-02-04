@@ -6,6 +6,7 @@ import {
   Grid,
   Bookmark,
   Heart,
+  MessageCircle,
   Award,
   Link as LinkIcon,
   MapPin,
@@ -23,7 +24,7 @@ import profileIcon from "@/assets/profileicon.png";
 import maleIcon from "@/assets/maleicon.png";
 import femaleIcon from "@/assets/femaleicon.png";
 import heroBanner from "@/assets/hero-banner.jpg";
-import { auth } from "@/firebase";
+import { auth } from "../firebase";
 import { useEffect, useState } from "react";
 
 const tabs = [
@@ -44,6 +45,7 @@ const Profile = () => {
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [myStories, setMyStories] = useState<any[]>([]);
+  const [myPosts, setMyPosts] = useState<any[]>([]);
   
 
   const [stats, setStats] = useState({
@@ -51,6 +53,15 @@ const Profile = () => {
   followers: 0,
   following: 0,
 });
+
+  const openPost = (index: number) => {
+    navigate("/posts", {
+      state: {
+        posts: myPosts,
+        startIndex: index,
+      },
+    });
+  };
 
   useEffect(() => {
   const unsubscribe = auth.onAuthStateChanged(async (user) => {
@@ -107,6 +118,22 @@ const Profile = () => {
         setMyStories([]);
       }
 
+      // Fetch my posts
+      const postsRes = await fetch(`http://127.0.0.1:8000/posts/user/${user.uid}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (postsRes.ok) {
+        const postsData = await postsRes.json();
+        const posts = Array.isArray(postsData) ? postsData : [];
+        setMyPosts(posts);
+      } else {
+        console.error("❌ Failed to fetch posts:", postsRes.status);
+        setMyPosts([]);
+      }
+
     } catch (error) {
       console.error("Failed to load profile:", error);
     } finally {
@@ -161,6 +188,12 @@ const Profile = () => {
   const coverImage = isValidRemoteImage(profile.cover_image)
     ? withCacheBust(profile.cover_image)
     : heroBanner;
+
+  const websiteLink = profile.website
+    ? profile.website.startsWith("http")
+      ? profile.website
+      : `https://${profile.website}`
+    : "";
 
   // Debug story ring
   console.log("🎯 Rendering profile with myStories.length:", myStories.length);
@@ -320,8 +353,9 @@ const Profile = () => {
               <LinkIcon className="w-4 h-4" />
                {profile.website ? (
                <a
-               href={profile.website}
+               href={websiteLink}
                target="_blank"
+               rel="noreferrer"
                className="text-primary hover:underline"
                >
                {profile.website}
@@ -363,12 +397,50 @@ const Profile = () => {
           </div>
         </div>
 
-        <div className="py-10 flex flex-col items-center gap-2 text-muted-foreground">
-          <p className="text-sm sm:text-base font-medium">
-            {emptyMessages[activeTab]}
-          </p>
-          <p className="text-xs sm:text-sm">Check back later.</p>
-        </div>
+        {activeTab === "posts" ? (
+          myPosts.length > 0 ? (
+            <div className="grid grid-cols-3 gap-1 sm:gap-2 p-1 sm:p-2">
+              {myPosts.map((post: any, index: number) => (
+                <button
+                  key={post._id}
+                  type="button"
+                  className="group relative aspect-square overflow-hidden bg-muted"
+                  onClick={() => openPost(index)}
+                >
+                  <img
+                    src={post.image_url}
+                    alt={post.caption || "Post"}
+                    className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                  />
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4 text-white text-xs sm:text-sm">
+                    <span className="flex items-center gap-1">
+                      <Heart className="w-4 h-4" />
+                      {post.likes?.length ?? 0}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <MessageCircle className="w-4 h-4" />
+                      {post.comments?.length ?? 0}
+                    </span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="py-10 flex flex-col items-center gap-2 text-muted-foreground">
+              <p className="text-sm sm:text-base font-medium">
+                {emptyMessages[activeTab]}
+              </p>
+              <p className="text-xs sm:text-sm">Check back later.</p>
+            </div>
+          )
+        ) : (
+          <div className="py-10 flex flex-col items-center gap-2 text-muted-foreground">
+            <p className="text-sm sm:text-base font-medium">
+              {emptyMessages[activeTab]}
+            </p>
+            <p className="text-xs sm:text-sm">Check back later.</p>
+          </div>
+        )}
       </div>
     </MainLayout>
   );

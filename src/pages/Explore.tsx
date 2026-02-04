@@ -18,6 +18,7 @@ import {
   UserCheck,
   Clock
 } from "lucide-react";
+import { StoriesRow } from "@/components/feed/StoriesRow";
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { auth } from "@/firebase";
@@ -174,6 +175,7 @@ const Explore = () => {
             </button>
           </div>
         </div>
+        
 
         {/* Search Results Section */}
         {searchQuery.trim() && (
@@ -224,8 +226,11 @@ const Explore = () => {
                       setActionLoading(null);
                     }
                   };
+                  
 
                   return (
+                    
+                    
                     <div
                       key={user.firebase_uid}
                       className="flex items-center justify-between p-3 sm:p-4 rounded-2xl bg-card border border-border hover:border-primary/50 transition-all group gap-2"

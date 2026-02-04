@@ -45,6 +45,7 @@ const UserProfile = () => {
   const [followStatus, setFollowStatus] = useState<"following" | "requested" | "pending" | "none">("none");
   const [isActionLoading, setIsActionLoading] = useState(false);
   const [userStories, setUserStories] = useState<any[]>([]);
+  const [userPosts, setUserPosts] = useState<any[]>([]);
 
   // Load current user and target profile
   useEffect(() => {
@@ -69,6 +70,26 @@ const UserProfile = () => {
           const data = await res.json();
           setProfile(data);
           setFollowStatus((data.follow_status || "none") as any);
+
+          const canViewPosts = data.account_type !== "private" || data.follow_status === "following" || user.uid === data.firebase_uid;
+
+          if (canViewPosts) {
+            const postsRes = await fetch(`http://127.0.0.1:8000/posts/user/${data.firebase_uid}`, {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            });
+
+            if (postsRes.ok) {
+              const postsData = await postsRes.json();
+              const posts = Array.isArray(postsData) ? postsData : [];
+              setUserPosts(posts);
+            } else {
+              setUserPosts([]);
+            }
+          } else {
+            setUserPosts([]);
+          }
 
           // Fetch user's stories if allowed
           const isFollowing = data.follow_status === "following";
@@ -167,6 +188,16 @@ const UserProfile = () => {
     } finally {
       setIsActionLoading(false);
     }
+  };
+
+  const openPost = (index: number) => {
+    navigate("/posts", {
+      state: {
+        posts: userPosts,
+        startIndex: index,
+        initialPostId: userPosts[index]?._id,
+      },
+    });
   };
 
   // Show loading state
@@ -486,12 +517,50 @@ const UserProfile = () => {
               </div>
             </div>
 
-            <div className="py-10 flex flex-col items-center gap-2 text-muted-foreground">
-              <p className="text-sm sm:text-base font-medium">
-                {emptyMessages[activeTab]}
-              </p>
-              <p className="text-xs sm:text-sm">Check back later.</p>
-            </div>
+            {activeTab === "posts" ? (
+              userPosts.length > 0 ? (
+                <div className="grid grid-cols-3 gap-1 sm:gap-2 p-1 sm:p-2">
+                  {userPosts.map((post: any, index: number) => (
+                    <button
+                      key={post._id}
+                      type="button"
+                      className="group relative aspect-square overflow-hidden bg-muted"
+                      onClick={() => openPost(index)}
+                    >
+                      <img
+                        src={post.image_url}
+                        alt={post.caption || "Post"}
+                        className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                      />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4 text-white text-xs sm:text-sm">
+                        <span className="flex items-center gap-1">
+                          <Heart className="w-4 h-4" />
+                          {post.likes?.length ?? 0}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <MessageCircle className="w-4 h-4" />
+                          {post.comments?.length ?? 0}
+                        </span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="py-10 flex flex-col items-center gap-2 text-muted-foreground">
+                  <p className="text-sm sm:text-base font-medium">
+                    {emptyMessages[activeTab]}
+                  </p>
+                  <p className="text-xs sm:text-sm">Check back later.</p>
+                </div>
+              )
+            ) : (
+              <div className="py-10 flex flex-col items-center gap-2 text-muted-foreground">
+                <p className="text-sm sm:text-base font-medium">
+                  {emptyMessages[activeTab]}
+                </p>
+                <p className="text-xs sm:text-sm">Check back later.</p>
+              </div>
+            )}
           </>
         )}
       </div>
