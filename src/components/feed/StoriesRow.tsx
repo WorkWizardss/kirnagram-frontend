@@ -3,6 +3,9 @@ import { cn } from "@/lib/utils";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { auth } from "@/firebase";
+import maleIcon from "@/assets/maleicon.png";
+import femaleIcon from "@/assets/femaleicon.png";
+import profileIcon from "@/assets/profileicon.png";
 
 interface Story {
   story_id: string;
@@ -24,6 +27,7 @@ interface StoryUser {
   user_id: string;
   username: string;
   user_image?: string;
+  gender?: string;
   account_type?: string;
   stories: Story[];
   unviewed_count: number;
@@ -35,6 +39,29 @@ export function StoriesRow() {
   const [myStories, setMyStories] = useState<Story[]>([]);
   const [friendsStories, setFriendsStories] = useState<StoryUser[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const isValidRemoteImage = (url?: string) => {
+    if (!url) return false;
+    const normalized = url.trim().toLowerCase();
+    if (!normalized || normalized === "null" || normalized === "undefined") return false;
+    if (normalized.includes("placeholder") || normalized.includes("default")) return false;
+    if (normalized.includes("ui-avatars.com")) return false;
+    return true;
+  };
+
+  const getAuthProfileImage = () => {
+    const photoUrl = auth.currentUser?.photoURL || undefined;
+    return isValidRemoteImage(photoUrl) ? photoUrl : profileIcon;
+  };
+
+  const getUserProfileImage = (user?: StoryUser) => {
+    if (isValidRemoteImage(user?.user_image)) {
+      return user?.user_image as string;
+    }
+    if (user?.gender === "male") return maleIcon;
+    if (user?.gender === "female") return femaleIcon;
+    return profileIcon;
+  };
 
   // Fetch stories feed (includes both my stories and friends' stories)
   useEffect(() => {
@@ -171,7 +198,7 @@ export function StoriesRow() {
                 background: 'linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%)'
               }}>
                 <img
-                  src={auth.currentUser?.photoURL || 'https://placehold.co/40x40/cccccc/999999?text=User'}
+                  src={getAuthProfileImage()}
                   alt="Your story"
                   className="w-full h-full rounded-full object-cover border-2 border-white"
                 />
@@ -233,7 +260,7 @@ export function StoriesRow() {
                   }}
                 >
                   <img
-                    src={userGroup.user_image || 'https://placehold.co/40x40/cccccc/999999?text=User'}
+                    src={getUserProfileImage(userGroup)}
                     alt={userGroup.username}
                     className="w-full h-full rounded-full object-cover border-2 border-white"
                   />
@@ -248,12 +275,6 @@ export function StoriesRow() {
               </div>
             </div>
 
-              {/* Story Count Badge (if multiple stories) */}
-              {userGroup.stories.length > 1 && (
-                <div className="absolute top-2 right-2 bg-black/80 backdrop-blur-sm rounded-full px-2 py-0.5 z-10">
-                  <span className="text-white text-[10px] font-bold">{userGroup.stories.length}</span>
-                </div>
-              )}
             </div>
           );
         })}

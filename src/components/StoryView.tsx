@@ -64,7 +64,12 @@ const StoryView: React.FC = () => {
 
   // Helper function to check if image URL is valid
   const isValidRemoteImage = (url?: string) => {
-    return url?.startsWith("http") && !url.includes("default") && !url.includes("placeholder");
+    if (!url) return false;
+    const normalized = url.trim().toLowerCase();
+    if (!normalized || normalized === "null" || normalized === "undefined") return false;
+    if (normalized.includes("placeholder") || normalized.includes("default")) return false;
+    if (normalized.includes("ui-avatars.com")) return false;
+    return true;
   };
 
   // Get profile image with gender fallback
@@ -76,6 +81,16 @@ const StoryView: React.FC = () => {
     // Fallback to gender-based icon
     if (currentUser?.gender === "male") return maleIcon;
     if (currentUser?.gender === "female") return femaleIcon;
+    return profileIcon;
+  };
+
+  const getUserAvatar = (user?: { image?: string; user_image?: string; gender?: string }) => {
+    const imageUrl = user?.image || user?.user_image;
+    if (isValidRemoteImage(imageUrl)) {
+      return imageUrl as string;
+    }
+    if (user?.gender === "male") return maleIcon;
+    if (user?.gender === "female") return femaleIcon;
     return profileIcon;
   };
 
@@ -232,7 +247,8 @@ const StoryView: React.FC = () => {
       ? Math.ceil(videoRef.current.duration * 1000) || currentStory.duration * 1000
       : currentStory.duration * 1000;
 
-    setProgressStartTime(Date.now());
+    const startTime = Date.now();
+    setProgressStartTime(startTime);
 
     // Smooth progress bar animation
     if (progressIntervalRef.current) {
@@ -240,7 +256,7 @@ const StoryView: React.FC = () => {
     }
 
     progressIntervalRef.current = setInterval(() => {
-      const elapsed = Date.now() - progressStartTime;
+      const elapsed = Date.now() - startTime;
       const progress = Math.min((elapsed / duration) * 100, 100);
       
       if (progressRef.current) {
@@ -342,11 +358,7 @@ const StoryView: React.FC = () => {
       const newLikedState = !isLiked;
       setIsLiked(newLikedState);
       
-      // Show toast notification
-      toast({
-        title: newLikedState ? "❤️ Liked!" : "Unlike",
-        description: newLikedState ? `You liked ${currentStory.username}'s story` : "Story unliked",
-      });
+      // UI-only state update; no toast notification
     } catch (error) {
       console.error('Error liking story:', error);
       toast({
@@ -428,7 +440,7 @@ const StoryView: React.FC = () => {
       setCurrentUserIdx(currentUserIdx + 1);
       setCurrentStoryIdx(0);
     } else {
-      navigate('/');
+      navigate('/explore');
     }
   };
 
@@ -572,7 +584,7 @@ const StoryView: React.FC = () => {
         </div>
 
         <button
-          onClick={() => navigate('/')}
+          onClick={() => navigate('/explore')}
           className="text-white hover:bg-white/20 p-2 rounded-full transition"
         >
           <X size={24} />
@@ -698,24 +710,14 @@ const StoryView: React.FC = () => {
           </div>
         ) : (
           // Other User's Story - Like Button with Liker Images
-          <div className="flex items-center justify-center gap-4">
-            {/* Heart Button */}
-            <button
-              onClick={handleLike}
-              className={`transition transform hover:scale-110 active:scale-95 ${
-                isLiked ? 'text-red-500' : 'text-white hover:text-red-400'
-              }`}
-            >
-              <Heart size={32} fill={isLiked ? 'currentColor' : 'none'} strokeWidth={2} />
-            </button>
-
+          <div className="flex items-center justify-end gap-4">
             {/* Liker Profile Images */}
             {likers.length > 0 && (
               <div className="flex items-center -space-x-2">
                 {likers.slice(0, 3).map((liker, idx) => (
                   <img
                     key={liker.user_id}
-                    src={liker.image || 'https://placehold.co/32x32/cccccc/999999?text=U'}
+                    src={getUserAvatar(liker)}
                     alt={liker.username}
                     className="w-8 h-8 rounded-full border-2 border-black object-cover cursor-pointer hover:scale-110 transition"
                     onClick={() => {
@@ -739,6 +741,16 @@ const StoryView: React.FC = () => {
                 )}
               </div>
             )}
+
+            {/* Heart Button */}
+            <button
+              onClick={handleLike}
+              className={`transition transform hover:scale-110 active:scale-95 ${
+                isLiked ? 'text-red-500' : 'text-white hover:text-red-400'
+              }`}
+            >
+              <Heart size={32} fill={isLiked ? 'currentColor' : 'none'} strokeWidth={2} />
+            </button>
           </div>
         )}
       </div>
@@ -778,7 +790,7 @@ const StoryView: React.FC = () => {
                       }}
                     >
                       <img
-                        src={liker.image || 'https://placehold.co/40x40/cccccc/999999?text=User'}
+                        src={getUserAvatar(liker)}
                         alt={liker.username}
                         className="w-10 h-10 rounded-full object-cover"
                       />
@@ -809,7 +821,7 @@ const StoryView: React.FC = () => {
                       }}
                     >
                       <img
-                        src={viewer.image || 'https://placehold.co/40x40/cccccc/999999?text=User'}
+                        src={getUserAvatar(viewer)}
                         alt={viewer.username}
                         className="w-10 h-10 rounded-full object-cover"
                       />

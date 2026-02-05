@@ -33,11 +33,11 @@ export function Header() {
           const existing = notificationMap.get(n._id);
           return {
             id: n._id,
-            user_id: n.user_id,
-            user_name: n.user_name,
-            user_image: n.user_image,
-            action: n.action,
-            description: n.description,
+            user_id: n.from_user_id || n.user_id,
+            user_name: n.from_user_name || n.user_name || "User",
+            user_image: n.from_user_image || n.user_image || null,
+            action: n.action || n.type || "notification",
+            description: n.description || n.message || "",
             timestamp: n.timestamp,
             // Preserve read status if notification already exists
             read: existing ? existing.read : false,

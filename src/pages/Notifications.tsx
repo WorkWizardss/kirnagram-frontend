@@ -13,7 +13,7 @@ const API_BASE = "http://127.0.0.1:8000";
 
 const Notifications = () => {
   const navigate = useNavigate();
-  const { notifications, markAllAsRead, removeNotification, clearAll } = useNotificationStore();
+  const { setNotifications, markAllAsRead, removeNotification, clearAll } = useNotificationStore();
   const { toast } = useToast();
   const [mounted, setMounted] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
@@ -22,7 +22,6 @@ const Notifications = () => {
 
   useEffect(() => {
     setMounted(true);
-    markAllAsRead();
     loadNotifications();
   }, [markAllAsRead]);
 
@@ -38,7 +37,21 @@ const Notifications = () => {
 
       if (res.ok) {
         const data = await res.json();
-        setServerNotifications(data.notifications || []);
+        const list = data.notifications || [];
+        setServerNotifications(list);
+        setNotifications(
+          list.map((n: any) => ({
+            id: n._id,
+            user_id: n.from_user_id || n.user_id,
+            user_name: n.from_user_name || n.user_name || "User",
+            user_image: n.from_user_image || n.user_image || null,
+            action: n.action || n.type || "notification",
+            description: n.description || n.message || "",
+            timestamp: n.timestamp,
+            read: true,
+          }))
+        );
+        markAllAsRead();
       }
     } catch (error) {
       console.error("Failed to load notifications:", error);

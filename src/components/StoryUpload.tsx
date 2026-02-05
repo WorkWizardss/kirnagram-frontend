@@ -1,9 +1,11 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { X, Plus, Type, Smile, Download, Camera, Video, Volume2, VolumeX, Scissors } from 'lucide-react';
+import { X, Plus, Type, Smile, Download, Camera, Video, Volume2, VolumeX, Scissors, ArrowLeft } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { auth } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toaster';
+
+const API_BASE = "http://127.0.0.1:8000";
 
 interface StoryFile {
   file: File;
@@ -35,26 +37,46 @@ const StoryUpload: React.FC = () => {
   const [showTrimControls, setShowTrimControls] = useState(false);
   const [trimStart, setTrimStart] = useState(0);
   const [trimEnd, setTrimEnd] = useState(30);
+  const [loadingFromPost, setLoadingFromPost] = useState(false);
 
   useEffect(() => {
     const imageUrl = (location.state as any)?.imageUrl as string | undefined;
     if (!imageUrl) return;
 
     const loadFromUrl = async () => {
+      setStep('edit');
+      setMediaType('image');
+      setLoadingFromPost(true);
       try {
-        const response = await fetch(imageUrl);
-        if (!response.ok) throw new Error("Failed to load image");
+        let response: Response | null = null;
+        const user = auth.currentUser;
+        if (!user) throw new Error("Authentication required");
+        const token = await user.getIdToken();
+        const proxyRes = await fetch(
+          `${API_BASE}/posts/image-proxy?url=${encodeURIComponent(imageUrl)}`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        if (proxyRes.ok) {
+          response = proxyRes;
+        } else {
+          try {
+            response = await fetch(imageUrl);
+          } catch {
+            response = null;
+          }
+        }
+        if (!response || !response.ok) throw new Error("Failed to load image");
         const blob = await response.blob();
         const file = new File([blob], "story.jpg", { type: blob.type || "image/jpeg" });
         const preview = URL.createObjectURL(blob);
         setStory({ file, preview, type: 'image' });
-        setMediaType('image');
-        setStep('edit');
       } catch {
         toast({
           title: "Unable to load story image",
           variant: "destructive",
         });
+      } finally {
+        setLoadingFromPost(false);
       }
     };
 
@@ -498,6 +520,17 @@ const StoryUpload: React.FC = () => {
     );
   }
 
+  if (loadingFromPost && step === 'edit' && !story) {
+    return (
+      <div className="fixed inset-0 z-50 bg-black flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3 text-white">
+          <div className="h-10 w-10 rounded-full border-2 border-white/20 border-t-white animate-spin" />
+          <p className="text-sm text-white/70">Loading story...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="fixed inset-0 z-50 bg-black flex flex-col lg:flex-row">
       {/* Header - Mobile only */}
@@ -510,9 +543,9 @@ const StoryUpload: React.FC = () => {
             setEmojiStickers([]);
           }}
           className="text-white hover:bg-gray-800 p-2 rounded-full transition"
-          title="Back to options"
+          title="Back"
         >
-          <X size={24} />
+          <ArrowLeft size={24} />
         </button>
         <h2 className="text-white font-semibold">Edit Story</h2>
         <button

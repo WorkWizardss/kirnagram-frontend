@@ -83,6 +83,46 @@ const CreatorPrompts = () => {
     remixes: prompt.remixes?.length || 0,
   });
 
+  const formatCount = (value: number) => {
+    if (value < 1000) return `${value}`;
+    if (value < 1_000_000) return `${(value / 1000).toFixed(1).replace(/\.0$/, "")}k`;
+    return `${(value / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
+  };
+
+  useEffect(() => {
+    const addView = async () => {
+      if (!selectedPrompt) return;
+      const user = auth.currentUser;
+      if (!user) return;
+      try {
+        const token = await user.getIdToken();
+        const res = await fetch(`${API_BASE}/ai-creator/prompts/${selectedPrompt._id}/view`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) throw new Error("Failed to add view");
+        setSelectedPrompt((prev) => {
+          if (!prev) return prev;
+          const views = new Set(prev.views || []);
+          views.add(user.uid);
+          return { ...prev, views: Array.from(views) };
+        });
+        setPrompts((prev) =>
+          prev.map((prompt) => {
+            if (prompt._id !== selectedPrompt._id) return prompt;
+            const views = new Set(prompt.views || []);
+            views.add(user.uid);
+            return { ...prompt, views: Array.from(views) };
+          })
+        );
+      } catch {
+        // ignore view errors
+      }
+    };
+
+    addView();
+  }, [selectedPrompt]);
+
   if (selectedPrompt) {
     return (
       <MainLayout showRightSidebar={false}>
@@ -140,7 +180,7 @@ const CreatorPrompts = () => {
             ]).map((stat, i) => (
               <div key={i} className="p-3 bg-card border border-border rounded-xl text-center">
                 <stat.icon className={cn("w-5 h-5 mx-auto mb-1", stat.color)} />
-                <p className="font-bold text-lg">{stat.value > 1000 ? `${(stat.value/1000).toFixed(1)}K` : stat.value}</p>
+                <p className="font-bold text-lg">{formatCount(stat.value)}</p>
                 <p className="text-[10px] text-muted-foreground">{stat.label}</p>
               </div>
             ))}

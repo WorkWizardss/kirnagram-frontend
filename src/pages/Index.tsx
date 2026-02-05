@@ -1,12 +1,15 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { FeedTabs } from "@/components/feed/FeedTabs";
 import { HeroBanner } from "@/components/feed/HeroBanner";
 import { FeedPost } from "@/components/feed/FeedPost";
-import { StoriesRow } from "@/components/feed/StoriesRow";
 import { auth } from "@/firebase";
 import { toast } from "@/components/ui/use-toast";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Send } from "lucide-react";
 import maleIcon from "@/assets/maleicon.png";
 import femaleIcon from "@/assets/femaleicon.png";
 import profileIcon from "@/assets/profileicon.png";
@@ -37,11 +40,30 @@ type UserSummary = {
   is_creator?: boolean;
 };
 
+type Comment = {
+  comment_id: string;
+  user_id: string;
+  username?: string;
+  user_image?: string;
+  text: string;
+  created_at?: string;
+};
+
 const Index = () => {
   const navigate = useNavigate();
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [userProfiles, setUserProfiles] = useState<Record<string, UserSummary>>({});
+  const [activePostId, setActivePostId] = useState<string | null>(null);
+  const [showLikes, setShowLikes] = useState(false);
+  const [showComments, setShowComments] = useState(false);
+  const [likeUsers, setLikeUsers] = useState<any[]>([]);
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [commentInput, setCommentInput] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const postRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const viewTimers = useRef<Record<string, number>>({});
+  const viewedPostIds = useRef<Set<string>>(new Set());
 
   const isValidRemoteImage = (url?: string) =>
     typeof url === "string" &&
@@ -55,6 +77,19 @@ const Index = () => {
     if (profile?.image_name && isValidRemoteImage(profile.image_name)) return profile.image_name;
     if (profile?.gender === "male") return maleIcon;
     if (profile?.gender === "female") return femaleIcon;
+    return profileIcon;
+  };
+
+  const getUserAvatar = (user?: {
+    image_name?: string;
+    image?: string;
+    user_image?: string;
+    gender?: string;
+  }) => {
+    const direct = user?.image_name || user?.image || user?.user_image;
+    if (direct && isValidRemoteImage(direct)) return direct;
+    if (user?.gender === "male") return maleIcon;
+    if (user?.gender === "female") return femaleIcon;
     return profileIcon;
   };
 
@@ -154,7 +189,7 @@ const Index = () => {
   };
 
   const handleShare = async (post: Post) => {
-    const shareUrl = post.image_url;
+    const shareUrl = `${window.location.origin}/posts/view/${post.user_id}?postId=${post._id}`;
     try {
       if (navigator.share) {
         await navigator.share({
@@ -171,11 +206,147 @@ const Index = () => {
     }
   };
 
+  const openProfile = (id?: string) => {
+    if (!id) return;
+    navigate(auth.currentUser?.uid === id ? "/profile" : `/user/${id}`);
+  };
+
+  const openLikes = async (postId: string) => {
+    const currentUser = auth.currentUser;
+    if (!currentUser) return;
+    setActivePostId(postId);
+    setShowLikes(true);
+    try {
+      const token = await currentUser.getIdToken();
+      const res = await fetch(`${API_BASE}/posts/likes/${postId}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      if (!res.ok) throw new Error("Failed to load likes");
+      const data = await res.json();
+      setLikeUsers(data.likes || []);
+    } catch {
+      setLikeUsers([]);
+    }
+  };
+
+  const openComments = async (postId: string) => {
+    setActivePostId(postId);
+    setShowComments(true);
+    try {
+      const res = await fetch(`${API_BASE}/posts/comments/${postId}`);
+      if (!res.ok) throw new Error("Failed to load comments");
+      const data = await res.json();
+      setComments(data.comments || []);
+    } catch {
+      setComments([]);
+    }
+  };
+
+  const handleAddView = async (postId: string) => {
+    const currentUser = auth.currentUser;
+    if (!currentUser || viewedPostIds.current.has(postId)) return;
+    try {
+      const token = await currentUser.getIdToken();
+      const res = await fetch(`${API_BASE}/posts/view/${postId}`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      if (!res.ok) throw new Error("Failed to add view");
+      viewedPostIds.current.add(postId);
+      updatePost(postId, (post) => {
+        const views = new Set(post.views || []);
+        views.add(currentUser.uid);
+        return { ...post, views: Array.from(views) };
+      });
+    } catch {
+      // ignore view errors
+    }
+  };
+
+  const handleAddComment = async () => {
+    if (!activePostId || !commentInput.trim()) return;
+    const currentUser = auth.currentUser;
+    if (!currentUser) return;
+
+    try {
+      setIsSubmitting(true);
+      const token = await currentUser.getIdToken();
+      const formData = new FormData();
+      formData.append("text", commentInput.trim());
+      const res = await fetch(`${API_BASE}/posts/comment/${activePostId}`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+          body: formData,
+        }
+      );
+      if (!res.ok) throw new Error("Failed to add comment");
+      const newComment: Comment = {
+        comment_id: `${Date.now()}`,
+        user_id: currentUser.uid,
+        username: currentUser.displayName || "You",
+        user_image: currentUser.photoURL || undefined,
+        text: commentInput.trim(),
+      };
+      setComments((prev) => [newComment, ...prev]);
+      updatePost(activePostId, (post) => ({
+        ...post,
+        comments: [newComment, ...(post.comments || [])],
+      }));
+      setCommentInput("");
+    } catch (error) {
+      toast({
+        title: "Comment failed",
+        description: error instanceof Error ? error.message : "Try again",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  useEffect(() => {
+    if (posts.length === 0) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          const postId = entry.target.getAttribute("data-post-id");
+          if (!postId) return;
+          if (entry.isIntersecting) {
+            if (viewTimers.current[postId]) return;
+            viewTimers.current[postId] = window.setTimeout(() => {
+              delete viewTimers.current[postId];
+              handleAddView(postId);
+            }, 2000);
+          } else if (viewTimers.current[postId]) {
+            clearTimeout(viewTimers.current[postId]);
+            delete viewTimers.current[postId];
+          }
+        });
+      },
+      { threshold: 0.6 }
+    );
+
+    posts.forEach((post) => {
+      const node = postRefs.current[post._id];
+      if (node) observer.observe(node);
+    });
+
+    return () => {
+      observer.disconnect();
+      Object.values(viewTimers.current).forEach((timerId) => clearTimeout(timerId));
+      viewTimers.current = {};
+    };
+  }, [posts]);
+
   return (
     <MainLayout>
       <div className="max-w-2xl mx-auto space-y-6 overflow-x-hidden">
-        {/* Mobile Stories */}
-        <StoriesRow />
+        
 
         {/* Feed Tabs */}
         <FeedTabs />
@@ -195,71 +366,122 @@ const Index = () => {
               const showRemix = Boolean(post.is_prompt_post);
               const isLiked = auth.currentUser?.uid ? post.likes?.includes(auth.currentUser.uid) : false;
               return (
-                <FeedPost
+                <div
                   key={post._id}
-                  author={{
-                    name: author?.full_name || author?.username || "User",
-                    username: author?.username ? `@${author.username}` : "@user",
-                    avatar: getProfileImage(author),
-                    isVerified: author?.is_creator,
+                  data-post-id={post._id}
+                  ref={(node) => {
+                    postRefs.current[post._id] = node;
                   }}
-                  image={post.image_url}
-                  caption={post.caption}
-                  tags={showRemix ? post.tags || [] : []}
-                  badge={showRemix ? post.prompt_badge || "Creator" : undefined}
-                  likes={post.likes?.length ?? 0}
-                  comments={post.comments?.length ?? 0}
-                  views={post.views?.length ?? 0}
-                  isLiked={Boolean(isLiked)}
-                  showRemix={showRemix}
-                  onAuthorClick={() =>
-                    navigate(post.user_id === auth.currentUser?.uid ? "/profile" : `/user/${post.user_id}`)
-                  }
-                  onPostClick={() =>
-                    navigate("/posts", {
-                      state: {
-                        posts: orderedPosts,
-                        startIndex: index,
-                        initialPostId: post._id,
-                      },
-                    })
-                  }
-                  onLike={() => handleLike(post._id)}
-                  onOpenLikes={() =>
-                    navigate("/posts", {
-                      state: {
-                        posts: orderedPosts,
-                        initialPostId: post._id,
-                        openLikesPostId: post._id,
-                      },
-                    })
-                  }
-                  onOpenComments={() =>
-                    navigate("/posts", {
-                      state: {
-                        posts: orderedPosts,
-                        initialPostId: post._id,
-                        openCommentsPostId: post._id,
-                      },
-                    })
-                  }
-                  onOpenViews={() =>
-                    navigate("/posts", {
-                      state: {
-                        posts: orderedPosts,
-                        initialPostId: post._id,
-                        openViewsPostId: post._id,
-                      },
-                    })
-                  }
-                  onShare={() => handleShare(post)}
-                  onAddToStory={() => navigate("/story/upload", { state: { imageUrl: post.image_url } })}
-                />
+                >
+                  <FeedPost
+                    author={{
+                      name: author?.full_name || author?.username || "User",
+                      username: author?.username ? `@${author.username}` : "@user",
+                      avatar: getProfileImage(author),
+                      isVerified: author?.is_creator,
+                    }}
+                    image={post.image_url}
+                    ratio={post.ratio}
+                    caption={post.caption}
+                    tags={showRemix ? post.tags || [] : []}
+                    badge={showRemix ? post.prompt_badge || "Creator" : undefined}
+                    likes={post.likes?.length ?? 0}
+                    comments={post.comments?.length ?? 0}
+                    views={post.views?.length ?? 0}
+                    isLiked={Boolean(isLiked)}
+                    showRemix={showRemix}
+                    onAuthorClick={() =>
+                      navigate(post.user_id === auth.currentUser?.uid ? "/profile" : `/user/${post.user_id}`)
+                    }
+                    onPostClick={undefined}
+                    onLike={() => handleLike(post._id)}
+                    onOpenLikes={() => openLikes(post._id)}
+                    onOpenComments={() => openComments(post._id)}
+                    onOpenViews={undefined}
+                    onShare={() => handleShare(post)}
+                    onAddToStory={() => navigate("/story/upload", { state: { imageUrl: post.image_url } })}
+                  />
+                </div>
               );
             })}
           </div>
         )}
       </div>
+
+      <Dialog open={showLikes} onOpenChange={setShowLikes}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Likes</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 max-h-[50vh] overflow-y-auto">
+            {likeUsers.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No likes yet.</p>
+            ) : (
+              likeUsers.map((user) => {
+                const userId = user.firebase_uid || user.user_id;
+                return (
+                  <button
+                    key={userId}
+                    className="flex w-full items-center gap-3 text-left"
+                    onClick={() => openProfile(userId)}
+                  >
+                    <img
+                      src={getUserAvatar(user)}
+                      alt={user.username || "User"}
+                      className="w-10 h-10 rounded-full object-cover"
+                    />
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate">{user.username || user.full_name || "User"}</p>
+                    </div>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showComments} onOpenChange={setShowComments}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Comments</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 max-h-[50vh] overflow-y-auto">
+            {comments.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No comments yet.</p>
+            ) : (
+              comments.map((comment) => (
+                <button
+                  key={comment.comment_id}
+                  className="flex w-full items-start gap-3 text-left"
+                  onClick={() => openProfile(comment.user_id)}
+                >
+                  <img
+                    src={getUserAvatar({ user_image: comment.user_image })}
+                    alt={comment.username || "User"}
+                    className="w-9 h-9 rounded-full object-cover"
+                  />
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium truncate">{comment.username || "User"}</p>
+                    <p className="text-sm text-muted-foreground break-words">{comment.text}</p>
+                  </div>
+                </button>
+              ))
+            )}
+          </div>
+          <div className="flex items-center gap-2 pt-2">
+            <Input
+              placeholder="Add a comment..."
+              value={commentInput}
+              onChange={(event) => setCommentInput(event.target.value)}
+            />
+            <Button onClick={handleAddComment} disabled={isSubmitting} size="icon">
+              <Send className="w-4 h-4" />
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
     </MainLayout>
   );
 };

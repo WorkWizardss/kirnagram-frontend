@@ -12,6 +12,7 @@ interface FeedPostProps {
     isVerified?: boolean;
   };
   image: string;
+  ratio?: string;
   tags?: string[];
   badge?: string;
   caption?: string;
@@ -33,6 +34,7 @@ interface FeedPostProps {
 export function FeedPost({
   author,
   image,
+  ratio,
   tags,
   badge,
   caption,
@@ -54,6 +56,12 @@ export function FeedPost({
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [captionExpanded, setCaptionExpanded] = useState(false);
+
+  const formatCount = (value: number) => {
+    if (value < 1000) return `${value}`;
+    if (value < 1_000_000) return `${(value / 1000).toFixed(1).replace(/\.0$/, "")}k`;
+    return `${(value / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
+  };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -153,27 +161,49 @@ export function FeedPost({
         )}
 
         {/* Image */}
-        <button className="relative w-full" onClick={onPostClick}>
-          <img
-            src={image}
-            alt="Post"
-            className="w-full aspect-[4/5] object-cover"
-          />
-          {showRemix && badge && (
-            <span className="absolute top-3 right-3 px-3 py-1 text-xs font-semibold bg-primary/90 text-primary-foreground rounded-full flex items-center gap-1">
-              <span className="text-sm">🔥</span> {badge}
-            </span>
-          )}
-          
-          {/* Ethical AI Badge */}
-          {showRemix && (
-            <div className="absolute bottom-3 left-3">
-              <span className="px-3 py-1 text-xs font-medium bg-emerald-500/20 text-emerald-400 rounded-full border border-emerald-500/30 backdrop-blur-sm">
-                ✨ Ethical AI
+        {onPostClick ? (
+          <button className="relative w-full" onClick={onPostClick}>
+            <img
+              src={image}
+              alt="Post"
+              className="w-full object-cover"
+              style={{ aspectRatio: ratio?.replace(":", "/") || "4 / 5" }}
+            />
+            {showRemix && badge && (
+              <span className="absolute top-3 right-3 px-3 py-1 text-xs font-semibold bg-primary/90 text-primary-foreground rounded-full flex items-center gap-1">
+                <span className="text-sm">🔥</span> {badge}
               </span>
-            </div>
-          )}
-        </button>
+            )}
+            {showRemix && (
+              <div className="absolute bottom-3 left-3">
+                <span className="px-3 py-1 text-xs font-medium bg-emerald-500/20 text-emerald-400 rounded-full border border-emerald-500/30 backdrop-blur-sm">
+                  ✨ Ethical AI
+                </span>
+              </div>
+            )}
+          </button>
+        ) : (
+          <div className="relative w-full">
+            <img
+              src={image}
+              alt="Post"
+              className="w-full object-cover"
+              style={{ aspectRatio: ratio?.replace(":", "/") || "4 / 5" }}
+            />
+            {showRemix && badge && (
+              <span className="absolute top-3 right-3 px-3 py-1 text-xs font-semibold bg-primary/90 text-primary-foreground rounded-full flex items-center gap-1">
+                <span className="text-sm">🔥</span> {badge}
+              </span>
+            )}
+            {showRemix && (
+              <div className="absolute bottom-3 left-3">
+                <span className="px-3 py-1 text-xs font-medium bg-emerald-500/20 text-emerald-400 rounded-full border border-emerald-500/30 backdrop-blur-sm">
+                  ✨ Ethical AI
+                </span>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Remix This Style Button */}
         {showRemix && (
@@ -190,9 +220,9 @@ export function FeedPost({
         )}
 
         {/* Actions */}
-        <div className="px-4 pb-3 flex items-center gap-6 text-sm">
+        <div className="px-4 pt-3 pb-4 flex items-center gap-6 text-sm">
           <button
-            className={`flex items-center gap-2 ${isLiked ? "text-red-500" : "text-foreground"}`}
+            className={`flex items-center gap-1.5 min-w-[56px] ${isLiked ? "text-red-500" : "text-foreground"}`}
             onClick={onLike}
           >
             <Heart className="w-5 h-5" fill={isLiked ? "currentColor" : "none"} />
@@ -206,18 +236,18 @@ export function FeedPost({
             </span>
           </button>
           <button
-            className="flex items-center gap-2 text-foreground"
+            className="flex items-center gap-1.5 min-w-[56px] text-foreground"
             onClick={onOpenComments}
           >
             <MessageCircle className="w-5 h-5" />
             <span>{comments}</span>
           </button>
           <button
-            className="flex items-center gap-2 text-foreground"
+            className="flex items-center gap-1.5 min-w-[56px] text-foreground"
             onClick={onOpenViews}
           >
             <Eye className="w-5 h-5" />
-            <span>{views}</span>
+            <span>{formatCount(views)}</span>
           </button>
         </div>
         {caption && (

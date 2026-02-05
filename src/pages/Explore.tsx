@@ -30,7 +30,6 @@ import heroBanner from "@/assets/hero-banner.jpg";
 import profileIcon from "@/assets/profileicon.png";
 import maleIcon from "@/assets/maleicon.png";
 import femaleIcon from "@/assets/femaleicon.png";
-
 const styleCategories = [
   { id: "all", label: "For You", icon: Sparkles, gradient: "from-primary to-secondary" },
   { id: "trending", label: "Hot Now", icon: Flame, gradient: "from-orange-500 to-red-500" },
@@ -293,28 +292,9 @@ const Explore = () => {
 
         {!searchQuery.trim() && (
           <>
-        {/* Style Categories - Horizontal Scroll */}
-        <div className="sticky md:relative top-16 md:top-auto z-40 md:z-auto bg-background/95 backdrop-blur-sm py-2 sm:py-3 px-3 sm:px-4 md:px-6 mb-6 sm:mb-8">
-          <div className="flex gap-1.5 sm:gap-2 overflow-x-auto pb-2 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-            {styleCategories.map((cat) => (
-              <button
-                key={cat.id}
-                onClick={() => setActiveCategory(cat.id)}
-                className={cn(
-                  "flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-full sm:rounded-2xl text-xs sm:text-sm font-medium transition-all whitespace-nowrap flex-shrink-0",
-                  activeCategory === cat.id
-                    ? `bg-gradient-to-r ${cat.gradient} text-white shadow-lg`
-                    : "bg-card border border-border text-muted-foreground hover:text-foreground hover:border-primary/50"
-                )}
-              >
-                <cat.icon className="w-3.5 sm:w-4 h-3.5 sm:h-4 flex-shrink-0" />
-                <span className="hidden sm:inline">{cat.label}</span>
-                <span className="sm:hidden text-xs">{cat.label === "For You" ? "For" : cat.label === "Neon Glow" ? "Neon" : cat.label === "Artistic" ? "Art" : cat.label === "Fantasy" ? "Fancy" : cat.label === "Hot Now" ? "Hot" : "Port"}</span>
-              </button>
-            ))}
+          <div className="sticky md:relative top-16 md:top-auto z-40 md:z-auto bg-background/95 backdrop-blur-sm py-2 sm:py-3 px-3 sm:px-4 md:px-6 mb-6 sm:mb-8">
+         <StoriesRow />
           </div>
-        </div>
-
         {/* Spotlight Section */}
         <div className="relative mb-8 rounded-3xl overflow-hidden group cursor-pointer">
           <div className="aspect-[16/9] sm:aspect-[21/9] md:aspect-[3/1] w-full">
@@ -434,6 +414,28 @@ const Explore = () => {
                 <p className="text-sm font-semibold truncate w-full text-center">{creator.name}</p>
                 <p className="text-xs text-muted-foreground line-clamp-1 w-full text-center">{creator.followers}</p>
               </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Style Categories - Horizontal Scroll */}
+        <div className="sticky md:relative top-16 md:top-auto z-40 md:z-auto bg-background/95 backdrop-blur-sm py-2 sm:py-3 px-3 sm:px-4 md:px-6 mb-6 sm:mb-8">
+          <div className="flex gap-1.5 sm:gap-2 overflow-x-auto pb-2 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+            {styleCategories.map((cat) => (
+              <button
+                key={cat.id}
+                onClick={() => setActiveCategory(cat.id)}
+                className={cn(
+                  "flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-full sm:rounded-2xl text-xs sm:text-sm font-medium transition-all whitespace-nowrap flex-shrink-0",
+                  activeCategory === cat.id
+                    ? `bg-gradient-to-r ${cat.gradient} text-white shadow-lg`
+                    : "bg-card border border-border text-muted-foreground hover:text-foreground hover:border-primary/50"
+                )}
+              >
+                <cat.icon className="w-3.5 sm:w-4 h-3.5 sm:h-4 flex-shrink-0" />
+                <span className="hidden sm:inline">{cat.label}</span>
+                <span className="sm:hidden text-xs">{cat.label === "For You" ? "For" : cat.label === "Neon Glow" ? "Neon" : cat.label === "Artistic" ? "Art" : cat.label === "Fantasy" ? "Fancy" : cat.label === "Hot Now" ? "Hot" : "Port"}</span>
+              </button>
             ))}
           </div>
         </div>

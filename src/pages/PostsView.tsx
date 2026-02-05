@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
@@ -49,28 +49,32 @@ const PostsView = () => {
   const navigate = useNavigate();
   const { userId } = useParams();
   const location = useLocation();
+  const searchParams = new URLSearchParams(location.search);
+  const queryPostId = searchParams.get("postId") || undefined;
   const statePosts = (location.state as any)?.posts as Post[] | undefined;
   const startIndex = (location.state as any)?.startIndex as number | undefined;
-  const initialPostId = (location.state as any)?.initialPostId as string | undefined;
+  const initialPostId =
+    ((location.state as any)?.initialPostId as string | undefined) || queryPostId;
+  const showOnlyInitial = Boolean(queryPostId && !statePosts);
   const viewType = (location.state as any)?.viewType as "posts" | "prompts" | undefined;
   const openLikesPostId = (location.state as any)?.openLikesPostId as string | undefined;
   const openCommentsPostId = (location.state as any)?.openCommentsPostId as string | undefined;
-  const openViewsPostId = (location.state as any)?.openViewsPostId as string | undefined;
 
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [activePostId, setActivePostId] = useState<string | null>(null);
   const [showLikes, setShowLikes] = useState(false);
   const [showComments, setShowComments] = useState(false);
-  const [showViews, setShowViews] = useState(false);
   const [likeUsers, setLikeUsers] = useState<any[]>([]);
-  const [viewUsers, setViewUsers] = useState<any[]>([]);
   const [comments, setComments] = useState<Comment[]>([]);
   const [commentInput, setCommentInput] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [menuPostId, setMenuPostId] = useState<string | null>(null);
   const [userProfiles, setUserProfiles] = useState<Record<string, UserSummary>>({});
   const [initialOpenHandled, setInitialOpenHandled] = useState(false);
+  const postRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const viewTimers = useRef<Record<string, number>>({});
+  const viewedPostIds = useRef<Set<string>>(new Set());
 
   const currentUserId = auth.currentUser?.uid;
 
@@ -99,7 +103,7 @@ const PostsView = () => {
     const fetchPosts = async () => {
       const currentUser = auth.currentUser;
       const targetId = userId || currentUser?.uid;
-      if (targetId) {
+      if (targetId && !showOnlyInitial) {
         const cached = sessionStorage.getItem(`posts:${targetId}`);
         if (cached) {
           try {
@@ -127,8 +131,13 @@ const PostsView = () => {
         if (!res.ok) throw new Error("Failed to load posts");
         const data = await res.json();
         const nextPosts = Array.isArray(data) ? data : [];
-        setPosts(nextPosts);
-        sessionStorage.setItem(`posts:${targetId}`, JSON.stringify(nextPosts));
+        if (showOnlyInitial && initialPostId) {
+          const selected = nextPosts.find((post) => post._id === initialPostId);
+          setPosts(selected ? [selected] : []);
+        } else {
+          setPosts(nextPosts);
+          sessionStorage.setItem(`posts:${targetId}`, JSON.stringify(nextPosts));
+        }
       } catch (error) {
         toast({
           title: "Failed to load posts",
@@ -141,7 +150,7 @@ const PostsView = () => {
     };
 
     fetchPosts();
-  }, [userId, statePosts]);
+  }, [userId, statePosts, showOnlyInitial, initialPostId]);
 
   useEffect(() => {
     const loadProfiles = async () => {
@@ -187,11 +196,7 @@ const PostsView = () => {
       openComments(openCommentsPostId);
       return;
     }
-    if (openViewsPostId) {
-      setInitialOpenHandled(true);
-      openViews(openViewsPostId);
-    }
-  }, [loading, initialOpenHandled, openLikesPostId, openCommentsPostId, openViewsPostId]);
+  }, [loading, initialOpenHandled, openLikesPostId, openCommentsPostId]);
 
   const isValidRemoteImage = (url?: string) =>
     typeof url === "string" &&
@@ -224,6 +229,12 @@ const PostsView = () => {
   const openProfile = (id?: string) => {
     if (!id) return;
     navigate(currentUserId === id ? "/profile" : `/user/${id}`);
+  };
+
+  const formatCount = (value: number) => {
+    if (value < 1000) return `${value}`;
+    if (value < 1_000_000) return `${(value / 1000).toFixed(1).replace(/\.0$/, "")}k`;
+    return `${(value / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
   };
 
   const updatePost = (postId: string, updater: (post: Post) => Post) => {
@@ -312,21 +323,24 @@ const PostsView = () => {
     }
   };
 
-  const openViews = async (postId: string) => {
+  const handleAddView = async (postId: string) => {
     const currentUser = auth.currentUser;
-    if (!currentUser) return;
-    setActivePostId(postId);
-    setShowViews(true);
+    if (!currentUser || viewedPostIds.current.has(postId)) return;
     try {
       const token = await currentUser.getIdToken();
-      const res = await fetch(`${API_BASE}/posts/views/${postId}`, {
+      const res = await fetch(`${API_BASE}/posts/view/${postId}`, {
+        method: "POST",
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!res.ok) throw new Error("Failed to load views");
-      const data = await res.json();
-      setViewUsers(data.views || []);
-    } catch (error) {
-      setViewUsers([]);
+      if (!res.ok) throw new Error("Failed to add view");
+      viewedPostIds.current.add(postId);
+      updatePost(postId, (post) => {
+        const views = new Set(post.views || []);
+        views.add(currentUser.uid);
+        return { ...post, views: Array.from(views) };
+      });
+    } catch {
+      // ignore view errors
     }
   };
 
@@ -370,8 +384,42 @@ const PostsView = () => {
     }
   };
 
+  useEffect(() => {
+    if (posts.length === 0) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          const postId = entry.target.getAttribute("data-post-id");
+          if (!postId) return;
+          if (entry.isIntersecting) {
+            if (viewTimers.current[postId]) return;
+            viewTimers.current[postId] = window.setTimeout(() => {
+              delete viewTimers.current[postId];
+              handleAddView(postId);
+            }, 2000);
+          } else if (viewTimers.current[postId]) {
+            clearTimeout(viewTimers.current[postId]);
+            delete viewTimers.current[postId];
+          }
+        });
+      },
+      { threshold: 0.6 }
+    );
+
+    posts.forEach((post) => {
+      const node = postRefs.current[post._id];
+      if (node) observer.observe(node);
+    });
+
+    return () => {
+      observer.disconnect();
+      Object.values(viewTimers.current).forEach((timerId) => clearTimeout(timerId));
+      viewTimers.current = {};
+    };
+  }, [posts]);
+
   const handleShare = async (post: Post) => {
-    const shareUrl = post.image_url;
+    const shareUrl = `${window.location.origin}/posts/view/${post.user_id}?postId=${post._id}`;
     try {
       if (navigator.share) {
         await navigator.share({
@@ -433,7 +481,14 @@ const PostsView = () => {
             {orderedPosts.map((post) => {
               const isLiked = currentUserId ? post.likes?.includes(currentUserId) : false;
               return (
-                <div key={post._id} className="bg-background">
+                <div
+                  key={post._id}
+                  className="bg-background"
+                  data-post-id={post._id}
+                  ref={(node) => {
+                    postRefs.current[post._id] = node;
+                  }}
+                >
                   <div className="flex items-center justify-between gap-3 px-3 pt-3 pb-2">
                     <button
                       className="flex items-center gap-3 min-w-0 flex-1"
@@ -568,13 +623,10 @@ const PostsView = () => {
                         <MessageCircle className="w-5 h-5" />
                         <span>{post.comments?.length ?? 0}</span>
                       </button>
-                      <button
-                        className="flex items-center gap-2 text-foreground"
-                        onClick={() => openViews(post._id)}
-                      >
+                      <div className="flex items-center gap-2 text-foreground">
                         <Eye className="w-5 h-5" />
-                        <span>{post.views?.length ?? 0}</span>
-                      </button>
+                        <span>{formatCount(post.views?.length ?? 0)}</span>
+                      </div>
                     </div>
                     {post.caption && <p className="text-sm text-muted-foreground">{post.caption}</p>}
                   </div>
@@ -659,35 +711,6 @@ const PostsView = () => {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={showViews} onOpenChange={setShowViews}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Views</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3 max-h-[50vh] overflow-y-auto">
-            {viewUsers.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No views yet.</p>
-            ) : (
-              viewUsers.map((viewer, index) => (
-                <button
-                  key={`${viewer.user_id}-${index}`}
-                  className="flex w-full items-center gap-3 text-left"
-                  onClick={() => openProfile(viewer.user_id)}
-                >
-                  <img
-                    src={getUserAvatar({ image: viewer.image, gender: viewer.gender })}
-                    alt={viewer.username || "User"}
-                    className="w-10 h-10 rounded-full object-cover"
-                  />
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium truncate">{viewer.username || "User"}</p>
-                  </div>
-                </button>
-              ))
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
     </MainLayout>
   );
 };
