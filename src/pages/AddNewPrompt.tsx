@@ -2,21 +2,99 @@ import { MainLayout } from "@/components/layout/MainLayout";
 import { ArrowLeft, Upload, Image, Type, FileText, Sparkles, CheckCircle } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useState } from "react";
-import { cn } from "@/lib/utils";
+import { auth } from "@/firebase";
+import { useToast } from "@/hooks/use-toast";
 
-const categories = ["Portrait", "Landscape", "Abstract", "Anime", "Cyberpunk", "Fantasy", "Vintage", "Other"];
+const API_BASE = "http://127.0.0.1:8000";
 
 const AddNewPrompt = () => {
+  const { toast } = useToast();
   const [sampleImage, setSampleImage] = useState<string | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState<string>("");
+  const [sampleFile, setSampleFile] = useState<File | null>(null);
+  const [styleName, setStyleName] = useState("");
+  const [promptDescription, setPromptDescription] = useState("");
+  const [aiModel, setAiModel] = useState<"chatgpt" | "gemini" | "both" | "">("");
+  const [tags, setTags] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      setSampleFile(file);
       const reader = new FileReader();
       reader.onload = () => setSampleImage(reader.result as string);
       reader.readAsDataURL(file);
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!styleName.trim() || !promptDescription.trim() || !aiModel) {
+      toast({
+        title: "Missing details",
+        description: "Please fill style name, prompt description, and AI model.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!sampleFile) {
+      toast({
+        title: "Add a sample image",
+        description: "Please upload a sample image before submitting.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const user = auth.currentUser;
+    if (!user) {
+      toast({
+        title: "Please login",
+        description: "You need to be signed in to submit a prompt.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      const token = await user.getIdToken();
+
+      const formData = new FormData();
+      formData.append("style_name", styleName.trim());
+      formData.append("prompt_description", promptDescription.trim());
+      formData.append("ai_model", aiModel);
+      formData.append("tags", tags.trim());
+      formData.append("image", sampleFile);
+
+      const res = await fetch(`${API_BASE}/ai-creator/prompts`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const message = await res.text();
+        throw new Error(message || "Failed to submit prompt");
+      }
+
+      setSubmitted(true);
+      toast({
+        title: "Prompt submitted",
+        description: "Your prompt was sent for review.",
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Something went wrong";
+      toast({
+        title: "Submission failed",
+        description: message,
+        variant: "destructive",
+      });
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -80,30 +158,36 @@ const AddNewPrompt = () => {
             <input 
               type="text" 
               placeholder="e.g., Neon Cyberpunk" 
+              value={styleName}
+              onChange={(e) => setStyleName(e.target.value)}
               className="w-full px-4 py-3 bg-muted/50 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" 
             />
             <p className="text-xs text-muted-foreground mt-2">Choose a unique, descriptive name</p>
           </div>
 
-          {/* Category */}
+          {/* AI Model */}
           <div className="bg-card border border-border rounded-2xl p-4">
             <div className="flex items-center gap-2 mb-3">
-              <Sparkles className="w-4 h-4 text-secondary" />
-              <label className="text-sm font-medium">Category</label>
+              <Sparkles className="w-4 h-4 text-cyan-500" />
+              <label className="text-sm font-medium">AI Model</label>
             </div>
-            <div className="flex flex-wrap gap-2">
-              {categories.map((cat) => (
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { label: "ChatGPT", value: "chatgpt" },
+                { label: "Gemini", value: "gemini" },
+                { label: "Both", value: "both" },
+              ].map((option) => (
                 <button
-                  key={cat}
-                  onClick={() => setSelectedCategory(cat)}
-                  className={cn(
-                    "px-3 py-1.5 rounded-full text-sm transition-colors",
-                    selectedCategory === cat
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted/50 text-muted-foreground hover:bg-muted"
-                  )}
+                  key={option.value}
+                  type="button"
+                  onClick={() => setAiModel(option.value as "chatgpt" | "gemini" | "both")}
+                  className={`px-3 py-2 rounded-xl border text-sm transition-colors ${
+                    aiModel === option.value
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border bg-muted/40 hover:bg-muted/60"
+                  }`}
                 >
-                  {cat}
+                  {option.label}
                 </button>
               ))}
             </div>
@@ -118,9 +202,27 @@ const AddNewPrompt = () => {
             <textarea 
               rows={4} 
               placeholder="Describe your AI style in detail. Include colors, mood, effects, and any specific instructions..."
+              value={promptDescription}
+              onChange={(e) => setPromptDescription(e.target.value)}
               className="w-full px-4 py-3 bg-muted/50 border border-border rounded-xl text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/50" 
             />
             <p className="text-xs text-muted-foreground mt-2">Be descriptive for best results</p>
+          </div>
+
+          {/* Tags */}
+          <div className="bg-card border border-border rounded-2xl p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <FileText className="w-4 h-4 text-blue-500" />
+              <label className="text-sm font-medium">Tags</label>
+            </div>
+            <input
+              type="text"
+              placeholder="e.g., neon, cyberpunk, city"
+              value={tags}
+              onChange={(e) => setTags(e.target.value)}
+              className="w-full px-4 py-3 bg-muted/50 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+            />
+            <p className="text-xs text-muted-foreground mt-2">Comma-separated tags</p>
           </div>
 
           {/* Sample Image */}
@@ -138,7 +240,10 @@ const AddNewPrompt = () => {
                   className="w-full h-48 object-cover rounded-xl" 
                 />
                 <button 
-                  onClick={() => setSampleImage(null)}
+                  onClick={() => {
+                    setSampleImage(null);
+                    setSampleFile(null);
+                  }}
                   className="absolute top-2 right-2 p-2 bg-background/80 rounded-full text-xs hover:bg-background"
                 >
                   ✕
@@ -174,10 +279,11 @@ const AddNewPrompt = () => {
 
           {/* Submit Button */}
           <button 
-            onClick={() => setSubmitted(true)}
-            className="w-full py-3.5 bg-gradient-to-r from-primary to-cyan-400 text-primary-foreground rounded-xl font-medium hover:shadow-lg hover:shadow-primary/30 transition-all"
+            onClick={handleSubmit}
+            disabled={submitting}
+            className="w-full py-3.5 bg-gradient-to-r from-primary to-cyan-400 text-primary-foreground rounded-xl font-medium hover:shadow-lg hover:shadow-primary/30 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            Submit for Review
+            {submitting ? "Submitting..." : "Submit for Review"}
           </button>
         </div>
       </div>

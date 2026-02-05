@@ -5,7 +5,7 @@ import {
   UserCheck,
   UserX,
   Grid,
-  Bookmark,
+  Award,
   Heart,
   MapPin,
   Calendar,
@@ -25,14 +25,12 @@ import { useEffect, useState } from "react";
 
 const tabs = [
   { id: "posts", label: "Posts", icon: Grid },
-  { id: "saved", label: "Saved", icon: Bookmark },
-  { id: "liked", label: "Liked", icon: Heart },
+  { id: "prompts", label: "Prompts", icon: Award },
 ];
 
 const emptyMessages: Record<string, string> = {
   posts: "No posts yet",
-  saved: "No saved items yet",
-  liked: "No liked posts yet",
+  prompts: "No prompts yet",
 };
 
 const UserProfile = () => {
@@ -46,6 +44,7 @@ const UserProfile = () => {
   const [isActionLoading, setIsActionLoading] = useState(false);
   const [userStories, setUserStories] = useState<any[]>([]);
   const [userPosts, setUserPosts] = useState<any[]>([]);
+  const [userPromptPosts, setUserPromptPosts] = useState<any[]>([]);
 
   // Load current user and target profile
   useEffect(() => {
@@ -71,24 +70,26 @@ const UserProfile = () => {
           setProfile(data);
           setFollowStatus((data.follow_status || "none") as any);
 
-          const canViewPosts = data.account_type !== "private" || data.follow_status === "following" || user.uid === data.firebase_uid;
+          if (data.account_type === "private" && data.follow_status !== "following" && data.is_creator) {
+            setActiveTab("prompts");
+          }
 
-          if (canViewPosts) {
-            const postsRes = await fetch(`http://127.0.0.1:8000/posts/user/${data.firebase_uid}`, {
-              headers: {
-                Authorization: `Bearer ${token}`,
-              },
-            });
+          const postsRes = await fetch(`http://127.0.0.1:8000/posts/user/${data.firebase_uid}`, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
 
-            if (postsRes.ok) {
-              const postsData = await postsRes.json();
-              const posts = Array.isArray(postsData) ? postsData : [];
-              setUserPosts(posts);
-            } else {
-              setUserPosts([]);
-            }
+          if (postsRes.ok) {
+            const postsData = await postsRes.json();
+            const posts = Array.isArray(postsData) ? postsData : [];
+            const promptPosts = posts.filter((p: any) => p.is_prompt_post);
+            const normalPosts = posts.filter((p: any) => !p.is_prompt_post);
+            setUserPosts(normalPosts);
+            setUserPromptPosts(promptPosts);
           } else {
             setUserPosts([]);
+            setUserPromptPosts([]);
           }
 
           // Fetch user's stories if allowed
@@ -196,6 +197,18 @@ const UserProfile = () => {
         posts: userPosts,
         startIndex: index,
         initialPostId: userPosts[index]?._id,
+        viewType: "posts",
+      },
+    });
+  };
+
+  const openPromptPost = (index: number) => {
+    navigate("/posts", {
+      state: {
+        posts: userPromptPosts,
+        startIndex: index,
+        initialPostId: userPromptPosts[index]?._id,
+        viewType: "prompts",
       },
     });
   };
@@ -226,6 +239,7 @@ const UserProfile = () => {
   const isPrivateAccount = profile.account_type === "private";
   const isFollowing = followStatus === "following";
   const canViewFullProfile = !isPrivateAccount || isFollowing || currentUser?.uid === profile.firebase_uid;
+  const canViewPromptPosts = Boolean(profile.is_creator);
   const canMessage = canViewFullProfile || currentUser?.uid === profile.firebase_uid;
 
   const isValidRemoteImage = (url?: string) =>
@@ -303,10 +317,19 @@ const UserProfile = () => {
             <div className="flex-1 flex items-center justify-around pt-8">
               <div className="text-center">
                 <p className="text-lg font-display font-bold">
-                  {profile.posts_count || 0}
+                  {profile.posts_count ?? userPosts.length}
                 </p>
                 <p className="text-xs text-muted-foreground">Posts</p>
               </div>
+
+              {Boolean(profile.is_creator) && (
+                <div className="text-center">
+                  <p className="text-lg font-display font-bold">
+                    {profile.prompts_count ?? userPromptPosts.length}
+                  </p>
+                  <p className="text-xs text-muted-foreground">Prompts</p>
+                </div>
+              )}
 
               {canViewFullProfile ? (
                 <Link to={`/user/${userId}/followers`} className="text-center hover:opacity-80 transition-opacity">
@@ -478,7 +501,7 @@ const UserProfile = () => {
           )}
 
           {/* Private Account Message */}
-          {!canViewFullProfile && (
+          {!canViewFullProfile && activeTab !== "prompts" && (
             <div className="text-center py-12">
               <p className="text-muted-foreground mb-4">This is a private account</p>
               <p className="text-sm text-muted-foreground">
@@ -491,33 +514,39 @@ const UserProfile = () => {
         </div>
 
         {/* Tabs and Content */}
-        {canViewFullProfile && (
+        {(canViewFullProfile || canViewPromptPosts) && (
           <>
             {/* Tabs */}
             <div className="mt-6 border-b border-border">
               <div className="flex gap-1 px-4">
-                {tabs.map((tab) => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    className={cn(
-                      "flex items-center gap-2 px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-medium transition-colors relative",
-                      activeTab === tab.id
-                        ? "text-primary"
-                        : "text-muted-foreground hover:text-foreground"
-                    )}
-                  >
-                    <tab.icon className="w-4 h-4" />
-                    {tab.label}
-                    {activeTab === tab.id && (
-                      <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
-                    )}
-                  </button>
-                ))}
+                {tabs
+                  .filter((tab) => {
+                    if (tab.id === "posts") return canViewFullProfile;
+                    if (tab.id === "prompts") return canViewPromptPosts;
+                    return true;
+                  })
+                  .map((tab) => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id)}
+                      className={cn(
+                        "flex items-center gap-2 px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-medium transition-colors relative",
+                        activeTab === tab.id
+                          ? "text-primary"
+                          : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      <tab.icon className="w-4 h-4" />
+                      {tab.label}
+                      {activeTab === tab.id && (
+                        <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
+                      )}
+                    </button>
+                  ))}
               </div>
             </div>
 
-            {activeTab === "posts" ? (
+            {activeTab === "posts" && canViewFullProfile ? (
               userPosts.length > 0 ? (
                 <div className="grid grid-cols-3 gap-1 sm:gap-2 p-1 sm:p-2">
                   {userPosts.map((post: any, index: number) => (
@@ -553,14 +582,46 @@ const UserProfile = () => {
                   <p className="text-xs sm:text-sm">Check back later.</p>
                 </div>
               )
-            ) : (
-              <div className="py-10 flex flex-col items-center gap-2 text-muted-foreground">
-                <p className="text-sm sm:text-base font-medium">
-                  {emptyMessages[activeTab]}
-                </p>
-                <p className="text-xs sm:text-sm">Check back later.</p>
-              </div>
-            )}
+            ) : activeTab === "prompts" && canViewPromptPosts ? (
+              userPromptPosts.length > 0 ? (
+                <div className="grid grid-cols-3 gap-1 sm:gap-2 p-1 sm:p-2">
+                  {userPromptPosts.map((post: any, index: number) => (
+                    <button
+                      key={post._id}
+                      type="button"
+                      className="group relative aspect-square overflow-hidden bg-muted"
+                      onClick={() => openPromptPost(index)}
+                    >
+                      <span className="absolute top-2 right-2 z-10 rounded-full bg-primary/90 px-2 py-0.5 text-[10px] font-semibold text-primary-foreground">
+                        {post.prompt_badge || "Prompt"}
+                      </span>
+                      <img
+                        src={post.image_url}
+                        alt={post.caption || "Prompt"}
+                        className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                      />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4 text-white text-xs sm:text-sm">
+                        <span className="flex items-center gap-1">
+                          <Heart className="w-4 h-4" />
+                          {post.likes?.length ?? 0}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <MessageCircle className="w-4 h-4" />
+                          {post.comments?.length ?? 0}
+                        </span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="py-10 flex flex-col items-center gap-2 text-muted-foreground">
+                  <p className="text-sm sm:text-base font-medium">
+                    {emptyMessages[activeTab]}
+                  </p>
+                  <p className="text-xs sm:text-sm">Check back later.</p>
+                </div>
+              )
+            ) : null}
           </>
         )}
       </div>

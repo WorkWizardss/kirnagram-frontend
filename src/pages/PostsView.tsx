@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/use-toast";
 import { auth } from "@/firebase";
-import { ArrowLeft, Eye, Heart, MessageCircle, MoreVertical, Send, Share2, Trash2, Plus } from "lucide-react";
+import { ArrowLeft, Eye, Heart, MessageCircle, MoreVertical, Send, Share2, Trash2, Plus, Sparkles } from "lucide-react";
 import maleIcon from "@/assets/maleicon.png";
 import femaleIcon from "@/assets/femaleicon.png";
 import profileIcon from "@/assets/profileicon.png";
@@ -19,6 +19,9 @@ type Post = {
   image_url: string;
   ratio?: string;
   caption?: string;
+  tags?: string[];
+  is_prompt_post?: boolean;
+  prompt_badge?: string;
   likes?: string[];
   comments?: any[];
   views?: string[];
@@ -49,6 +52,7 @@ const PostsView = () => {
   const statePosts = (location.state as any)?.posts as Post[] | undefined;
   const startIndex = (location.state as any)?.startIndex as number | undefined;
   const initialPostId = (location.state as any)?.initialPostId as string | undefined;
+  const viewType = (location.state as any)?.viewType as "posts" | "prompts" | undefined;
   const openLikesPostId = (location.state as any)?.openLikesPostId as string | undefined;
   const openCommentsPostId = (location.state as any)?.openCommentsPostId as string | undefined;
   const openViewsPostId = (location.state as any)?.openViewsPostId as string | undefined;
@@ -417,7 +421,7 @@ const PostsView = () => {
           <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
             <ArrowLeft className="w-5 h-5" />
           </Button>
-          <h1 className="text-xl font-display font-bold">Posts</h1>
+          <h1 className="text-xl font-display font-bold">{viewType === "prompts" ? "Prompts" : "Posts"}</h1>
         </div>
 
         {loading ? (
@@ -509,7 +513,40 @@ const PostsView = () => {
                       className="w-full object-cover"
                       style={{ aspectRatio: post.ratio?.replace(":", "/") || "1 / 1" }}
                     />
+                    {post.is_prompt_post && (
+                      <span className="absolute top-3 right-3 px-3 py-1 text-xs font-semibold bg-primary/90 text-primary-foreground rounded-full flex items-center gap-1">
+                        <span className="text-sm">🔥</span> {post.prompt_badge || "Prompt"}
+                      </span>
+                    )}
                   </div>
+                  {post.is_prompt_post && post.tags && post.tags.length > 0 && (
+                    <div className="px-3 pt-3 flex flex-wrap gap-2">
+                      {post.tags.map((tag) => (
+                        <span
+                          key={tag}
+                          className="px-3 py-1 text-xs font-medium rounded-full bg-muted text-muted-foreground"
+                        >
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {post.is_prompt_post && (
+                    <div className="px-3 pt-3">
+                      <button
+                        className="w-full flex items-center justify-center gap-2 py-3 bg-gradient-to-r from-secondary to-accent text-secondary-foreground rounded-xl font-semibold text-sm hover:shadow-lg hover:shadow-secondary/30 transition-all"
+                        onClick={() => {
+                          toast({
+                            title: "Remix",
+                            description: "Select an image to remix this prompt.",
+                          });
+                        }}
+                      >
+                        <Sparkles className="w-5 h-5" />
+                        Remix This Style
+                      </button>
+                    </div>
+                  )}
                   <div className="px-3 py-4 space-y-3">
                     <div className="flex items-center gap-6 text-sm">
                       <button

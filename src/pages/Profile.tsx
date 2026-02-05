@@ -29,14 +29,12 @@ import { useEffect, useState } from "react";
 
 const tabs = [
   { id: "posts", label: "Posts", icon: Grid },
-  { id: "saved", label: "Saved", icon: Bookmark },
-  { id: "liked", label: "Liked", icon: Heart },
+  { id: "prompts", label: "Prompts", icon: Award },
 ];
 
 const emptyMessages: Record<string, string> = {
   posts: "No posts yet",
-  saved: "No saved items yet",
-  liked: "No liked posts yet",
+  prompts: "No prompts yet",
 };
 
 const Profile = () => {
@@ -46,10 +44,12 @@ const Profile = () => {
   const [loading, setLoading] = useState(true);
   const [myStories, setMyStories] = useState<any[]>([]);
   const [myPosts, setMyPosts] = useState<any[]>([]);
+  const [myPromptPosts, setMyPromptPosts] = useState<any[]>([]);
   
 
   const [stats, setStats] = useState({
   posts: 0,
+  prompts: 0,
   followers: 0,
   following: 0,
 });
@@ -59,6 +59,17 @@ const Profile = () => {
       state: {
         posts: myPosts,
         startIndex: index,
+        viewType: "posts",
+      },
+    });
+  };
+
+  const openPromptPost = (index: number) => {
+    navigate("/posts", {
+      state: {
+        posts: myPromptPosts,
+        startIndex: index,
+        viewType: "prompts",
       },
     });
   };
@@ -128,10 +139,14 @@ const Profile = () => {
       if (postsRes.ok) {
         const postsData = await postsRes.json();
         const posts = Array.isArray(postsData) ? postsData : [];
-        setMyPosts(posts);
+        const promptPosts = posts.filter((p: any) => p.is_prompt_post);
+        const normalPosts = posts.filter((p: any) => !p.is_prompt_post);
+        setMyPosts(normalPosts);
+        setMyPromptPosts(promptPosts);
       } else {
         console.error("❌ Failed to fetch posts:", postsRes.status);
         setMyPosts([]);
+        setMyPromptPosts([]);
       }
 
     } catch (error) {
@@ -292,6 +307,15 @@ const Profile = () => {
     <p className="text-xs sm:text-sm text-muted-foreground">Posts</p>
   </div>
 
+  {Boolean(profile.is_creator) && (
+    <div className="text-center">
+      <p className="text-lg sm:text-xl md:text-2xl font-display font-bold">
+        {stats.prompts}
+      </p>
+      <p className="text-xs sm:text-sm text-muted-foreground">Prompts</p>
+    </div>
+  )}
+
   <Link to={`/user/${profile.firebase_uid}/followers`} className="text-center hover:opacity-80 transition-opacity">
     <p className="text-lg sm:text-xl md:text-2xl font-display font-bold">
       {stats.followers}
@@ -376,7 +400,7 @@ const Profile = () => {
         {/* Tabs */}
         <div className="mt-6 border-b border-border">
           <div className="flex gap-1 px-4">
-            {tabs.map((tab) => (
+            {tabs.filter((tab) => (tab.id === "prompts" ? Boolean(profile.is_creator) : true)).map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
@@ -410,6 +434,45 @@ const Profile = () => {
                   <img
                     src={post.image_url}
                     alt={post.caption || "Post"}
+                    className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                  />
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4 text-white text-xs sm:text-sm">
+                    <span className="flex items-center gap-1">
+                      <Heart className="w-4 h-4" />
+                      {post.likes?.length ?? 0}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <MessageCircle className="w-4 h-4" />
+                      {post.comments?.length ?? 0}
+                    </span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="py-10 flex flex-col items-center gap-2 text-muted-foreground">
+              <p className="text-sm sm:text-base font-medium">
+                {emptyMessages[activeTab]}
+              </p>
+              <p className="text-xs sm:text-sm">Check back later.</p>
+            </div>
+          )
+        ) : activeTab === "prompts" ? (
+          myPromptPosts.length > 0 ? (
+            <div className="grid grid-cols-3 gap-1 sm:gap-2 p-1 sm:p-2">
+              {myPromptPosts.map((post: any, index: number) => (
+                <button
+                  key={post._id}
+                  type="button"
+                  className="group relative aspect-square overflow-hidden bg-muted"
+                  onClick={() => openPromptPost(index)}
+                >
+                  <span className="absolute top-2 right-2 z-10 rounded-full bg-primary/90 px-2 py-0.5 text-[10px] font-semibold text-primary-foreground">
+                    {post.prompt_badge || "Prompt"}
+                  </span>
+                  <img
+                    src={post.image_url}
+                    alt={post.caption || "Prompt"}
                     className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                   />
                   <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4 text-white text-xs sm:text-sm">
