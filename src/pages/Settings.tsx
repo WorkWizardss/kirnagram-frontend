@@ -1,0 +1,313 @@
+import { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import {
+    ArrowLeft,
+  User,
+  Bell,
+  Shield,
+  Moon,
+  Globe,
+  HelpCircle,
+  FileText,
+  LogOut,
+  ChevronRight,
+  Smartphone,
+  Eye,
+  Lock,
+  CreditCard,
+  Users,
+  Check,
+  X,
+} from "lucide-react";
+import { useTheme } from "next-themes";
+import { useTranslation } from "react-i18next";
+import { MainLayout } from "@/components/layout/MainLayout";
+import { languages } from "@/i18n/translations";
+import { useToast } from "@/hooks/use-toast";
+import { auth } from "@/firebase";
+
+const Settings = () => {
+  const navigate = useNavigate();
+  const { theme, setTheme } = useTheme();
+  const { t, i18n } = useTranslation();
+  const [isPrivateAccount, setIsPrivateAccount] = useState(false);
+  const [showLanguageModal, setShowLanguageModal] = useState(false);
+  const { toast } = useToast();
+  const [updatingPrivacy, setUpdatingPrivacy] = useState(false);
+
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged(async (user) => {
+      if (!user) return;
+      try {
+        const token = await user.getIdToken();
+        const res = await fetch("http://127.0.0.1:8000/profile/me", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          setIsPrivateAccount(data.account_type === "private");
+        }
+      } catch (error) {
+        console.error("Failed to load account type", error);
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  const currentLanguage = languages.find(lang => lang.code === i18n.language) || languages[0];
+
+  const handleLanguageChange = (langCode: string) => {
+    i18n.changeLanguage(langCode);
+    localStorage.setItem('language', langCode);
+    setShowLanguageModal(false);
+  };
+
+  const handleLogout = () => {
+    navigate("/login");
+  };
+
+  const togglePrivacy = async () => {
+    if (updatingPrivacy) return;
+    try {
+      setUpdatingPrivacy(true);
+      const user = auth.currentUser;
+      if (!user) return;
+
+      const nextValue = !isPrivateAccount;
+      const token = await user.getIdToken();
+      const res = await fetch("http://127.0.0.1:8000/profile/update", {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ account_type: nextValue ? "private" : "public" }),
+      });
+
+      if (!res.ok) throw new Error("Failed to update privacy");
+
+      setIsPrivateAccount(nextValue);
+      toast({
+        description: nextValue ? "Switched to a private account" : "Switched to a public account",
+        duration: 1500,
+      });
+    } catch (error) {
+      console.error("Privacy toggle failed", error);
+      toast({
+        title: "Error",
+        description: "Could not update account privacy",
+        variant: "destructive",
+        duration: 2000,
+      });
+    } finally {
+      setUpdatingPrivacy(false);
+    }
+  };
+
+  const settingsSections = [
+    {
+      title: t('settings.account'),
+      items: [
+        { icon: User, label: t('settings.editProfile'), link: "/edit-profile" },
+        { icon: Lock, label: t('settings.changePassword'), link: "#" },
+        { icon: Smartphone, label: t('settings.twoFactor'), link: "#" },
+        { icon: CreditCard, label: t('settings.paymentMethods'), link: "#" },
+      ],
+    },
+    {
+      title: t('settings.privacy'),
+      items: [
+        {
+          icon: Users,
+          label: t('settings.privateAccount'),
+          toggle: true,
+          checked: isPrivateAccount,
+          onChange: togglePrivacy,
+          description: isPrivateAccount 
+            ? t('settings.privateAccountOn')
+            : t('settings.privateAccountOff'),
+        },
+        { icon: Eye, label: t('settings.activityStatus'), link: "#" },
+        { icon: Shield, label: t('settings.blockedAccounts'), link: "#" },
+      ],
+    },
+    {
+      title: t('settings.preferences'),
+      items: [
+        { icon: Bell, label: t('settings.notifications'), link: "#" },
+        { 
+          icon: Globe, 
+          label: t('settings.language'), 
+          value: currentLanguage.nativeName,
+          isLanguage: true,
+        },
+        {
+          icon: Moon,
+          label: t('settings.darkMode'),
+          toggle: true,
+          checked: theme === "dark",
+          onChange: () => setTheme(theme === "dark" ? "light" : "dark"),
+        },
+      ],
+    },
+    {
+      title: t('settings.security'),
+      items: [
+        { icon: Shield, label: t('settings.securitySettings'), link: "#" },
+        { icon: Smartphone, label: t('settings.activeSessions'), link: "#" },
+      ],
+    },
+    {
+      title: t('settings.support'),
+      items: [
+        { icon: HelpCircle, label: t('settings.helpCenter'), link: "#" },
+        { icon: FileText, label: t('settings.termsOfService'), link: "/terms" },
+        { icon: FileText, label: t('settings.privacyPolicy'), link: "/privacy" },
+      ],
+    },
+  ];
+
+  return (
+    <MainLayout showRightSidebar={false}>
+      <div className="max-w-2xl mx-auto pb-20 md:pb-0 overflow-x-hidden">
+        <button
+          type="button"
+          onClick={() => navigate(-1)}
+          className="p-2 rounded-xl hover:bg-muted/50 transition-colors mb-2 mt-4 ml-2"
+          aria-label="Back"
+        >
+          <ArrowLeft className="w-5 h-5 text-foreground" />
+        </button>
+        <h1 className="text-xl font-display font-bold mb-4 px-2">{t('settings.title')}</h1>
+        
+        {settingsSections.map((section) => (
+          <div key={section.title} className="py-3">
+            <h2 className="px-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+              {section.title}
+            </h2>
+            <div className="bg-card border border-border rounded-xl overflow-hidden">
+              {section.items.map((item, index) => (
+                <div key={item.label}>
+                  {item.toggle ? (
+                    <button
+                      onClick={item.onChange}
+                      className="w-full flex items-center justify-between px-4 py-3.5 hover:bg-muted/50 transition-colors"
+                    >
+                      <div className="flex items-center gap-3 flex-1">
+                        <item.icon className="w-5 h-5 text-muted-foreground flex-shrink-0" />
+                        <div className="flex flex-col items-start">
+                          <span className="text-sm">{item.label}</span>
+                          {item.description && (
+                            <span className="text-xs text-muted-foreground">{item.description}</span>
+                          )}
+                        </div>
+                      </div>
+                      <div
+                        className={`w-11 h-6 rounded-full transition-colors ${
+                          item.checked ? "bg-primary" : "bg-muted"
+                        } relative flex-shrink-0`}
+                      >
+                        <div
+                          className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform ${
+                            item.checked ? "translate-x-5" : "translate-x-0.5"
+                          }`}
+                        />
+                      </div>
+                    </button>
+                  ) : item.isLanguage ? (
+                    <button
+                      onClick={() => setShowLanguageModal(true)}
+                      className="w-full flex items-center justify-between px-4 py-3.5 hover:bg-muted/50 transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <item.icon className="w-5 h-5 text-muted-foreground" />
+                        <span className="text-sm">{item.label}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-muted-foreground">{item.value}</span>
+                        <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                      </div>
+                    </button>
+                  ) : (
+                    <Link
+                      to={item.link || "#"}
+                      className="flex items-center justify-between px-4 py-3.5 hover:bg-muted/50 transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <item.icon className="w-5 h-5 text-muted-foreground" />
+                        <span className="text-sm">{item.label}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {item.value && (
+                          <span className="text-sm text-muted-foreground">{item.value}</span>
+                        )}
+                        <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                      </div>
+                    </Link>
+                  )}
+                  {index < section.items.length - 1 && (
+                    <div className="h-px bg-border ml-12" />
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+
+        {/* Logout Button */}
+        <div className="px-2 py-6">
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center justify-center gap-2 py-3 bg-destructive/10 text-destructive hover:bg-destructive/20 rounded-xl font-medium transition-colors"
+          >
+            <LogOut className="w-5 h-5" />
+            {t('nav.logout')}
+          </button>
+        </div>
+
+        {/* Version */}
+        <p className="text-center text-xs text-muted-foreground pb-8">
+          kirnagram v1.0.0
+        </p>
+      </div>
+
+      {/* Language Selection Modal */}
+      {showLanguageModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+          <div className="bg-card border border-border rounded-2xl w-full max-w-sm overflow-hidden shadow-xl animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between p-4 border-b border-border">
+              <h3 className="font-semibold text-lg">{t('settings.selectLanguage')}</h3>
+              <button 
+                onClick={() => setShowLanguageModal(false)}
+                className="p-2 rounded-full hover:bg-muted transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="max-h-[60vh] overflow-y-auto">
+              {languages.map((lang) => (
+                <button
+                  key={lang.code}
+                  onClick={() => handleLanguageChange(lang.code)}
+                  className="w-full flex items-center justify-between px-4 py-3.5 hover:bg-muted/50 transition-colors"
+                >
+                  <div className="flex flex-col items-start">
+                    <span className="text-sm font-medium">{lang.nativeName}</span>
+                    <span className="text-xs text-muted-foreground">{lang.name}</span>
+                  </div>
+                  {i18n.language === lang.code && (
+                    <Check className="w-5 h-5 text-primary" />
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </MainLayout>
+  );
+};
+
+export default Settings;
