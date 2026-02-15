@@ -31,6 +31,7 @@ import StoryUpload from "@/components/StoryUpload";
 import StoryView from "@/components/StoryView";
 import Credits from "./pages/Credits";
 import Remix from "./pages/Remix";
+import RemixViewer from "./pages/RemixViewer";
 
 const queryClient = new QueryClient();
 
@@ -103,7 +104,16 @@ const App = () => (
             <Route path="/become-publisher" element={<PrivateRoute><BecomePublisher /></PrivateRoute>} />
             <Route path="/create" element={<PrivateRoute><AddPostPage /></PrivateRoute>} />
             <Route path="/credits" element={<PrivateRoute><Credits /></PrivateRoute>} />
+            {/* Remix generation page (keep for prompt-based remix) */}
             <Route path="/remix/:promptId" element={<PrivateRoute><Remix /></PrivateRoute>} />
+            <Route
+              path="/remix-view"
+              element={
+                <PrivateRoute>
+                  <RemixViewer />
+                </PrivateRoute>
+              }
+            />
             <Route path="/posts" element={<PrivateRoute><PostsView /></PrivateRoute>} />
             <Route path="/posts/view/:userId" element={<PrivateRoute><PostsView /></PrivateRoute>} />
             <Route path="/story/upload" element={<PrivateRoute><StoryUpload /></PrivateRoute>} />

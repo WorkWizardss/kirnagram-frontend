@@ -1,3 +1,4 @@
+import React from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { MainLayout } from "@/components/layout/MainLayout";
@@ -13,6 +14,7 @@ import { Send } from "lucide-react";
 import maleIcon from "@/assets/maleicon.png";
 import femaleIcon from "@/assets/femaleicon.png";
 import profileIcon from "@/assets/profileicon.png";
+import SuggestedUsers from "@/components/feed/SuggestedUsers";
 
 const API_BASE = "http://127.0.0.1:8000";
 
@@ -362,60 +364,58 @@ const Index = () => {
           <div className="py-10 text-center text-muted-foreground">No posts yet.</div>
         ) : (
           <div className="space-y-6">
-            {orderedPosts.map((post, index) => {
-              const author = userProfiles[post.user_id];
-              const showRemix = Boolean(post.is_prompt_post);
-              const isLiked = auth.currentUser?.uid ? post.likes?.includes(auth.currentUser.uid) : false;
-              return (
-                <div
-                  key={post._id}
-                  data-post-id={post._id}
-                  ref={(node) => {
-                    postRefs.current[post._id] = node;
-                  }}
-                >
-                  <FeedPost
-                    author={{
-                      name: author?.full_name || author?.username || "User",
-                      username: author?.username ? `@${author.username}` : "@user",
-                      avatar: getProfileImage(author),
-                      isVerified: author?.is_creator,
-                    }}
-                    image={post.image_url}
-                    ratio={post.ratio}
-                    caption={post.caption}
-                    tags={showRemix ? post.tags || [] : []}
-                    badge={showRemix ? post.prompt_badge || "Creator" : undefined}
-                    likes={post.likes?.length ?? 0}
-                    comments={post.comments?.length ?? 0}
-                    views={post.views?.length ?? 0}
-                    isLiked={Boolean(isLiked)}
-                    showRemix={showRemix}
-                    onRemix={() => {
-                      if (!post.prompt_id) {
-                        toast({
-                          title: "Remix unavailable",
-                          description: "This prompt is missing an ID.",
-                          variant: "destructive",
-                        });
-                        return;
-                      }
-                      navigate(`/remix/${post.prompt_id}`);
-                    }}
-                    onAuthorClick={() =>
-                      navigate(post.user_id === auth.currentUser?.uid ? "/profile" : `/user/${post.user_id}`)
-                    }
-                    onPostClick={undefined}
-                    onLike={() => handleLike(post._id)}
-                    onOpenLikes={() => openLikes(post._id)}
-                    onOpenComments={() => openComments(post._id)}
-                    onOpenViews={undefined}
-                    onShare={() => handleShare(post)}
-                    onAddToStory={() => navigate("/story/upload", { state: { imageUrl: post.image_url } })}
-                  />
-                </div>
-              );
-            })}
+        {orderedPosts.map((post, index) => {
+  const author = userProfiles[post.user_id];
+  const showRemix = Boolean(post.is_prompt_post);
+  const isLiked = auth.currentUser?.uid
+    ? post.likes?.includes(auth.currentUser.uid)
+    : false;
+
+  return (
+    <React.Fragment key={post._id}>
+      <div
+        data-post-id={post._id}
+        ref={(node) => {
+          postRefs.current[post._id] = node;
+        }}
+      >
+        <FeedPost
+          author={{
+            name: author?.full_name || author?.username || "User",
+            username: author?.username ? `@${author.username}` : "@user",
+            avatar: getProfileImage(author),
+            isVerified: author?.is_creator,
+          }}
+          image={post.image_url}
+          ratio={post.ratio}
+          caption={post.caption}
+          tags={showRemix ? post.tags || [] : []}
+          badge={showRemix ? post.prompt_badge || "Creator" : undefined}
+          likes={post.likes?.length ?? 0}
+          comments={post.comments?.length ?? 0}
+          views={post.views?.length ?? 0}
+          isLiked={Boolean(isLiked)}
+          showRemix={showRemix}
+          onLike={() => handleLike(post._id)}
+          onOpenLikes={() => openLikes(post._id)}
+          onOpenComments={() => openComments(post._id)}
+          onShare={() => handleShare(post)}
+          onAddToStory={() =>
+            navigate("/story/upload", { state: { imageUrl: post.image_url } })
+          }
+        />
+      </div>
+
+      {index === 1 && (
+        <div key="suggested-users">
+          <SuggestedUsers />
+        </div>
+      )}
+    </React.Fragment>
+  );
+})}
+
+
           </div>
         )}
       </div>

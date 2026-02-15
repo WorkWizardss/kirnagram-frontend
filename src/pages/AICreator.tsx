@@ -18,6 +18,7 @@ import heroBanner from "@/assets/hero-banner.jpg";
 const steps = ["Personal", "Social Media"];
 
 const API_URL = "http://localhost:8000";
+const REMIX_PAYOUT = 10;
 
 const AICreator = () => {
   const navigate = useNavigate();
@@ -46,6 +47,8 @@ const AICreator = () => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [selfiePhoto, setSelfiePhoto] = useState<string | null>(null);
+  const [prompts, setPrompts] = useState<any[]>([]);
+  const [promptsLoading, setPromptsLoading] = useState(true);
 
   // Fetch user profile and application status
   useEffect(() => {
@@ -96,6 +99,38 @@ const AICreator = () => {
     };
     fetchData();
   }, []);
+
+  useEffect(() => {
+    const fetchPrompts = async () => {
+      if (!isApproved || !profile) {
+        setPrompts([]);
+        setPromptsLoading(false);
+        return;
+      }
+      try {
+        setPromptsLoading(true);
+        const user = auth.currentUser;
+        if (!user) return;
+        const token = await user.getIdToken();
+        const res = await fetch(`${API_URL}/ai-creator/prompts/me?status=all`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) return setPrompts([]);
+        const data = await res.json();
+        setPrompts(Array.isArray(data) ? data : []);
+      } catch (err) {
+        setPrompts([]);
+      } finally {
+        setPromptsLoading(false);
+      }
+    };
+
+    fetchPrompts();
+  }, [profile, isApproved]);
+
+  const promptsCount = prompts.length;
+  const remixesCount = prompts.reduce((s, p) => s + (p.remixes?.length || 0), 0);
+  const earningsTotal = remixesCount * REMIX_PAYOUT;
 
   // Handle input changes
   const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -254,10 +289,10 @@ const AICreator = () => {
 
   // Dashboard after approval - Profile style
   if (isApproved && profile) {
-    // All stats set to 0, followers removed, bio removed
+    // All stats computed from top-level `prompts` state
     const stats = [
-      { label: "Prompts", value: "0" },
-      { label: "Remixes", value: "0" },
+      { label: "Prompts", value: String(promptsCount) },
+      { label: "Remixes", value: String(remixesCount) },
     ];
 
     // Avatar and cover image logic (same as Profile)
@@ -343,10 +378,10 @@ const AICreator = () => {
                   <p className="text-xs sm:text-sm text-muted-foreground">{stat.label}</p>
                 </div>
               ))}
-              <div className="flex-1 text-right">
-                <p className="text-lg sm:text-xl font-display font-bold text-green-500">₹0</p>
-                <p className="text-xs sm:text-sm text-muted-foreground">Earnings</p>
-              </div>
+                <div className="flex-1 text-right">
+                  <p className="text-lg sm:text-xl font-display font-bold text-green-500">₹{earningsTotal}</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">Earnings</p>
+                </div>
             </div>
 
            

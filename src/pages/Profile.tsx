@@ -30,12 +30,17 @@ import { useEffect, useState } from "react";
 const tabs = [
   { id: "posts", label: "Posts", icon: Grid },
   { id: "prompts", label: "Prompts", icon: Award },
+  { id: "remixes", label: "Remixes", icon: Heart },
 ];
 
 const emptyMessages: Record<string, string> = {
   posts: "No posts yet",
   prompts: "No prompts yet",
+  remixes: "No remixes yet",
 };
+
+
+const API_BASE = import.meta.env.VITE_API_BASE || "http://127.0.0.1:8000";
 
 const Profile = () => {
   const navigate = useNavigate();
@@ -45,14 +50,33 @@ const Profile = () => {
   const [myStories, setMyStories] = useState<any[]>([]);
   const [myPosts, setMyPosts] = useState<any[]>([]);
   const [myPromptPosts, setMyPromptPosts] = useState<any[]>([]);
-  
+  const [remixes, setRemixes] = useState<any[]>([]);
 
   const [stats, setStats] = useState({
-  posts: 0,
-  prompts: 0,
-  followers: 0,
-  following: 0,
-});
+    posts: 0,
+    prompts: 0,
+    followers: 0,
+    following: 0,
+  });
+  // Fetch remix history
+  useEffect(() => {
+    const loadRemixes = async () => {
+      const user = auth.currentUser;
+      if (!user) return;
+      const token = await user.getIdToken();
+
+      const res = await fetch(`${API_BASE}/remix/my-remixes`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (!res.ok) return;
+
+      const data = await res.json();
+      setRemixes(data.remixes || []);
+    };
+
+    loadRemixes();
+  }, []);
 
   const openPost = (index: number) => {
     navigate("/posts", {
@@ -267,7 +291,11 @@ const Profile = () => {
                 className="flex items-center gap-2 px-4 py-2 glass-card hover:bg-muted/50 rounded-xl font-medium text-sm transition-all"
                 title="Share Profile"
                 onClick={() => {
-                  const url = window.location.origin + "/profile";
+                  // Prefer username if available, else fallback to UID
+                  const profilePath = profile.username
+                    ? `/user/${encodeURIComponent(profile.username)}`
+                    : `/user/${profile.firebase_uid}`;
+                  const url = window.location.origin + profilePath;
                   navigator.clipboard.writeText(url);
                   toast({ title: "Profile link copied!", description: url });
                 }}
@@ -485,6 +513,39 @@ const Profile = () => {
                       {post.comments?.length ?? 0}
                     </span>
                   </div>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="py-10 flex flex-col items-center gap-2 text-muted-foreground">
+              <p className="text-sm sm:text-base font-medium">
+                {emptyMessages[activeTab]}
+              </p>
+              <p className="text-xs sm:text-sm">Check back later.</p>
+            </div>
+          )
+        ) : activeTab === "remixes" ? (
+          remixes.length > 0 ? (
+            <div className="grid grid-cols-3 gap-2">
+              {remixes.map((item: any, index: number) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  className="relative group cursor-pointer"
+                  onClick={() =>
+                    navigate("/remix-view", {
+                      state: {
+                        remixes,
+                        startIndex: index,
+                      },
+                    })
+                  }
+                >
+                  <img
+                    src={item.image_url}
+                    className="w-full h-32 object-cover rounded-md"
+                  />
+                 
                 </button>
               ))}
             </div>

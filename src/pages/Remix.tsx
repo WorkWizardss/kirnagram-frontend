@@ -42,7 +42,9 @@ const Remix = () => {
   const [quality, setQuality] = useState<string>("medium");
   const [burnCost, setBurnCost] = useState<number | null>(null);
   const [outputUrl, setOutputUrl] = useState<string | null>(null);
+  const [remixId, setRemixId] = useState<string | null>(null);
   const [resolvedModel, setResolvedModel] = useState<"chatgpt" | "gemini">("chatgpt");
+  const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
     const loadPrompt = async () => {
@@ -180,7 +182,25 @@ const Remix = () => {
       if (!data?.success || !data?.image_url) {
         throw new Error(data?.error || "Failed to generate remix");
       }
-      setOutputUrl(data.image_url);
+
+      try {
+        const watermarked = await addWatermarkToImage(data.image_url);
+        setOutputUrl(watermarked);
+      } catch {
+        setOutputUrl(data.image_url);
+      }
+      setRemixId(data.remix_id || null);
+
+      // 🔥 REFRESH PROMPT DATA (IMPORTANT)
+      const updatedPromptRes = await fetch(
+        `${API_BASE}/ai-creator/prompts/${promptId}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (updatedPromptRes.ok) {
+        const updatedPrompt = await updatedPromptRes.json();
+        setPrompt(updatedPrompt);
+      }
+
       toast({
         title: "Remix ready",
         description: "Your remix is generated and ready to use.",
@@ -196,6 +216,91 @@ const Remix = () => {
     }
   };
 
+  /**
+   * Adds Kirnagram logo + website text at the bottom-left of the provided image URL.
+   * - Tries to fetch the image as a Blob and draw to a canvas (avoids taint where possible).
+   * - Looks for a logo at `/kirnagram-logo.png` in the public folder; if missing, only text will be drawn.
+   * - Returns a data URL (png) of the watermarked image.
+   */
+  async function addWatermarkToImage(src: string): Promise<string> {
+    const loadImage = (urlOrBlob: string | Blob) =>
+      new Promise<HTMLImageElement>((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = reject;
+        if (typeof urlOrBlob === "string") {
+          img.crossOrigin = "anonymous";
+          img.src = urlOrBlob;
+        } else {
+          img.src = URL.createObjectURL(urlOrBlob);
+        }
+      });
+
+    // fetch main image as blob to improve chance of clean canvas draw
+    const imgResp = await fetch(src);
+    if (!imgResp.ok) throw new Error("Failed to fetch image for watermarking");
+    const imgBlob = await imgResp.blob();
+    const img = await loadImage(imgBlob);
+
+    // create canvas scaled by devicePixelRatio for crisper output
+    const dpr = Math.max(1, window.devicePixelRatio || 1);
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(img.width * dpr);
+    canvas.height = Math.round(img.height * dpr);
+    canvas.style.width = `${img.width}px`;
+    canvas.style.height = `${img.height}px`;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Canvas not supported");
+    ctx.scale(dpr, dpr);
+
+    // draw original image
+    ctx.drawImage(img, 0, 0, img.width, img.height);
+
+    const padding = Math.max(12, Math.round(img.width * 0.02));
+    const maxLogoWidth = Math.round(img.width * 0.12);
+    let logoDrawn = false;
+
+    // try to load logo from public folder; skip if missing
+    try {
+      const logo = await loadImage("/kirnagram-logo.png");
+      const logoRatio = logo.width / logo.height;
+      let logoW = maxLogoWidth;
+      let logoH = Math.round(logoW / logoRatio);
+      if (logoH > img.height * 0.18) {
+        logoH = Math.round(img.height * 0.18);
+        logoW = Math.round(logoH * logoRatio);
+      }
+      const logoX = padding; // bottom-left corner
+      const logoY = img.height - logoH - padding;
+
+      ctx.globalAlpha = 0.98;
+      ctx.drawImage(logo, logoX, logoY, logoW, logoH);
+      ctx.globalAlpha = 1;
+      logoDrawn = true;
+    } catch {
+      logoDrawn = false;
+    }
+
+    // draw website text to the right of logo (or at padding if no logo)
+    const text = "www.kirnagram.com";
+    const fontSize = Math.max(14, Math.min(32, Math.round(img.width * 0.035)));
+    ctx.font = `bold ${fontSize}px Inter, Arial, sans-serif`;
+    ctx.textBaseline = "alphabetic";
+
+    const textX = logoDrawn ? padding + Math.round(maxLogoWidth) + Math.round(padding * 0.5) : padding;
+    const textY = img.height - padding; // baseline at bottom padding
+
+    // subtle shadow for contrast
+    ctx.fillStyle = "rgba(0,0,0,0.45)";
+    ctx.fillText(text, textX + 1, textY + 1);
+
+    // white, semi-opaque text
+    ctx.fillStyle = "rgba(255,255,255,0.85)";
+    ctx.fillText(text, textX, textY);
+
+    return canvas.toDataURL("image/png");
+  }
+
   if (loading) {
     return (
       <MainLayout showRightSidebar={false}>
@@ -208,6 +313,11 @@ const Remix = () => {
 
   return (
     <MainLayout showRightSidebar={false}>
+      <div className="w-full flex justify-start max-w-4xl mx-auto pt-4 pb-2">
+        <Button variant="ghost" onClick={() => navigate(-1)}>
+          ← Back
+        </Button>
+      </div>
       <div className="max-w-4xl mx-auto pb-24 md:pb-8 space-y-6">
         <div className="flex flex-col gap-2">
           <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Remix Studio</p>
@@ -362,32 +472,86 @@ const Remix = () => {
                 <img
                   src={outputUrl}
                   alt="Remix output"
-                  className="w-full h-56 object-cover rounded-xl"
+                  className="w-full max-h-[500px] object-contain bg-black rounded-xl"
+                  style={{ aspectRatio: ratio }}
                 />
                 <div className="grid gap-2">
-                  <Button
-                    variant="outline"
-                    onClick={() => window.open(outputUrl || "", "_blank")}
-                    className="w-full"
-                  >
+                <Button
+                  variant="outline"
+                  className="w-full flex items-center justify-center"
+                  disabled={downloading}
+                  onClick={async () => {
+                    setDownloading(true);
+                    try {
+                      if (!remixId) {
+                        alert("Invalid remix ID");
+                        setDownloading(false);
+                        return;
+                      }
+
+                      const user = auth.currentUser;
+                      if (!user) {
+                        alert("Please login");
+                        setDownloading(false);
+                        return;
+                      }
+
+                      const token = await user.getIdToken();
+
+                      const response = await fetch(
+                        `${import.meta.env.VITE_API_BASE}/remix/download/${remixId}`,
+                        {
+                          headers: {
+                            Authorization: `Bearer ${token}`,
+                          },
+                        }
+                      );
+
+                      if (!response.ok) {
+                        throw new Error("Download failed");
+                      }
+
+                      const blob = await response.blob();
+                      const url = window.URL.createObjectURL(blob);
+
+                      const link = document.createElement("a");
+                      link.href = url;
+                      link.download = `kirnagram-remix-${remixId}.png`;
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+
+                      window.URL.revokeObjectURL(url);
+
+                    } catch (error) {
+                      alert("Failed to download image.");
+                    } finally {
+                      setDownloading(false);
+                    }
+                  }}
+                >
+                  {downloading ? (
+                    <span className="animate-spin h-5 w-5 border-2 border-t-transparent border-primary rounded-full mr-2"></span>
+                  ) : (
                     <Download className="w-4 h-4 mr-2" />
-                    Download
-                  </Button>
-                  <Button
-                    onClick={() => navigate("/create", { state: { imageUrl: outputUrl } })}
-                    className="w-full"
-                  >
-                    Add to Post
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    onClick={() => navigate("/story/upload", { state: { imageUrl: outputUrl } })}
-                    className="w-full"
-                  >
-                    Add to Story
-                  </Button>
+                  )}
+                  {downloading ? "Downloading..." : "Download"}
+                </Button>
+                <Button
+                  onClick={() => navigate("/create", { state: { imageUrl: outputUrl } })}
+                  className="w-full"
+                >
+                  Add to Post
+                </Button>
+                <Button
+                  variant="secondary"
+                  onClick={() => navigate("/story/upload", { state: { imageUrl: outputUrl } })}
+                  className="w-full"
+                >
+                  Add to Story
+                </Button>
                 </div>
-              </Card>
+                </Card>
             )}
           </div>
         </div>

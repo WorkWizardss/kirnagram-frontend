@@ -25,7 +25,7 @@ export type CreditsSummary = {
     remaining: number;
     next_available_at?: string | null;
   };
-  paid_plans: Array<{ id: string; name: string; credits: number }>;
+  paid_plans: Array<{ id: string; name: string; credits: number; price?: number; description?: string[] }>;
   burn_rates?: Record<string, Record<string, number>>;
   model_enabled?: Record<string, boolean>;
   recent_activity: CreditsActivity[];
