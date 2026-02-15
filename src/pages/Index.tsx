@@ -403,6 +403,7 @@ const Index = () => {
           onAddToStory={() =>
             navigate("/story/upload", { state: { imageUrl: post.image_url } })
           }
+
         />
       </div>
 

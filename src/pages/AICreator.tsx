@@ -18,7 +18,7 @@ import heroBanner from "@/assets/hero-banner.jpg";
 const steps = ["Personal", "Social Media"];
 
 const API_URL = "http://localhost:8000";
-const REMIX_PAYOUT = 10;
+const REMIX_PAYOUT = 1; // Match CreatorEarnings.tsx
 
 const AICreator = () => {
   const navigate = useNavigate();
@@ -128,9 +128,29 @@ const AICreator = () => {
     fetchPrompts();
   }, [profile, isApproved]);
 
-  const promptsCount = prompts.length;
-  const remixesCount = prompts.reduce((s, p) => s + (p.remixes?.length || 0), 0);
-  const earningsTotal = remixesCount * REMIX_PAYOUT;
+  // --- Earnings logic: match CreatorEarnings.tsx ---
+  const [totalWithdrawn, setTotalWithdrawn] = useState(0);
+  const totalRemixes = prompts.reduce((s, p) => s + (p.remixes?.length || 0), 0);
+  const totalEarnings = totalRemixes * REMIX_PAYOUT;
+  const availableBalance = Math.max(0, totalEarnings - totalWithdrawn);
+
+  useEffect(() => {
+    const fetchWithdrawn = async () => {
+      try {
+        const user = auth.currentUser;
+        if (!user) return;
+        const token = await user.getIdToken();
+        const res = await fetch(`${API_URL}/withdraw/summary`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setTotalWithdrawn(data.totalWithdrawn || 0);
+        }
+      } catch {}
+    };
+    fetchWithdrawn();
+  }, []);
 
   // Handle input changes
   const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -290,6 +310,8 @@ const AICreator = () => {
   // Dashboard after approval - Profile style
   if (isApproved && profile) {
     // All stats computed from top-level `prompts` state
+    const promptsCount = prompts.length;
+    const remixesCount = totalRemixes;
     const stats = [
       { label: "Prompts", value: String(promptsCount) },
       { label: "Remixes", value: String(remixesCount) },
@@ -378,17 +400,20 @@ const AICreator = () => {
                   <p className="text-xs sm:text-sm text-muted-foreground">{stat.label}</p>
                 </div>
               ))}
-                <div className="flex-1 text-right">
-                  <p className="text-lg sm:text-xl font-display font-bold text-green-500">₹{earningsTotal}</p>
-                  <p className="text-xs sm:text-sm text-muted-foreground">Earnings</p>
+              {/* Earnings Card UI block: only Available Balance */}
+              <div className="flex-1 text-right">
+                <div className="inline-block p-3 rounded-xl bg-gradient-to-br from-green-500/10 to-emerald-500/10 border border-green-500/20">
+                  <p className="text-xs text-muted-foreground mb-1 text-right">Available Balance</p>
+                  <p className="text-lg sm:text-xl font-display font-bold text-green-500 text-right">₹{availableBalance}</p>
                 </div>
+              </div>
             </div>
 
            
           </div>
 
           {/* Dashboard Options */}
-          <div className="px-4 grid grid-cols-2 gap-3">
+          <div className="px-4 grid grid-cols-2 gap-3 mt-0">
             <Link
               to="/ai-creator/earnings"
               className="p-4 md:p-5 bg-gradient-to-br from-green-500/10 to-emerald-500/10 border border-green-500/20 rounded-2xl hover:border-green-500/40 transition-all"

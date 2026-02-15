@@ -64,8 +64,18 @@ const Settings = () => {
     setShowLanguageModal(false);
   };
 
-  const handleLogout = () => {
-    navigate("/login");
+  const handleLogout = async () => {
+    try {
+      await auth.signOut();
+      navigate("/login");
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Logout failed",
+        variant: "destructive",
+        duration: 2000,
+      });
+    }
   };
 
   const togglePrivacy = async () => {
@@ -111,8 +121,8 @@ const Settings = () => {
       title: t('settings.account'),
       items: [
         { icon: User, label: t('settings.editProfile'), link: "/edit-profile" },
-        { icon: Lock, label: t('settings.changePassword'), link: "#" },
-        { icon: Smartphone, label: t('settings.twoFactor'), link: "#" },
+        { icon: Lock, label: t('settings.changePassword'), link: "/change-password" },
+        { icon: Smartphone, label: t('settings.twoFactor'), link: "/two-factor" },
         { icon: CreditCard, label: t('settings.paymentMethods'), link: "#" },
       ],
     },
@@ -136,7 +146,7 @@ const Settings = () => {
     {
       title: t('settings.preferences'),
       items: [
-        { icon: Bell, label: t('settings.notifications'), link: "#" },
+        { icon: Bell, label: t('settings.notifications'), link: "/notifications" },
         { 
           icon: Globe, 
           label: t('settings.language'), 
@@ -172,15 +182,17 @@ const Settings = () => {
   return (
     <MainLayout showRightSidebar={false}>
       <div className="max-w-2xl mx-auto pb-20 md:pb-0 overflow-x-hidden">
-        <button
-          type="button"
-          onClick={() => navigate(-1)}
-          className="p-2 rounded-xl hover:bg-muted/50 transition-colors mb-2 mt-4 ml-2"
-          aria-label="Back"
-        >
-          <ArrowLeft className="w-5 h-5 text-foreground" />
-        </button>
-        <h1 className="text-xl font-display font-bold mb-4 px-2">{t('settings.title')}</h1>
+        <div className="flex items-center gap-3 mb-4 mt-4 ml-2">
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            className="p-2 rounded-xl hover:bg-muted/50 transition-colors"
+            aria-label="Back"
+          >
+            <ArrowLeft className="w-5 h-5 text-foreground" />
+          </button>
+          <h1 className="text-xl font-display font-bold">{t('settings.title')}</h1>
+        </div>
         
         {settingsSections.map((section) => (
           <div key={section.title} className="py-3">

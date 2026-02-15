@@ -1,3 +1,4 @@
+import TwoFactor from "./pages/TwoFactor";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -9,6 +10,7 @@ import { auth } from "@/firebase";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
+import ForgotPassword from "./pages/ForgotPassword";
 import Explore from "./pages/Explore";
 import Profile from "./pages/Profile";
 import UserProfile from "./pages/UserProfile";
@@ -32,6 +34,7 @@ import StoryView from "@/components/StoryView";
 import Credits from "./pages/Credits";
 import Remix from "./pages/Remix";
 import RemixViewer from "./pages/RemixViewer";
+import ChangePassword from "./pages/ChangePassword";
 
 const queryClient = new QueryClient();
 
@@ -85,6 +88,7 @@ const App = () => (
             <Route path="/" element={<PublicRoute><Login /></PublicRoute>} />
             <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
             <Route path="/signup" element={<PublicRoute><Signup /></PublicRoute>} />
+            <Route path="/forgot-password" element={<PublicRoute><ForgotPassword /></PublicRoute>} />
 
             <Route path="/home" element={<PrivateRoute><Index /></PrivateRoute>} />
             <Route path="/explore" element={<PrivateRoute><Explore /></PrivateRoute>} />
@@ -119,6 +123,8 @@ const App = () => (
             <Route path="/story/upload" element={<PrivateRoute><StoryUpload /></PrivateRoute>} />
             <Route path="/story/view" element={<PrivateRoute><StoryView /></PrivateRoute>} />
             <Route path="/story/view/:storyId" element={<PrivateRoute><StoryView /></PrivateRoute>} />
+            <Route path="/change-password" element={<PrivateRoute><ChangePassword /></PrivateRoute>} />
+            <Route path="/two-factor" element={<PrivateRoute><TwoFactor /></PrivateRoute>} />
 
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />

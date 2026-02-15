@@ -20,31 +20,52 @@ const CreatorEarnings = () => {
   const [prompts, setPrompts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showWithdraw, setShowWithdraw] = useState(false);
+  const [withdrawSuccess, setWithdrawSuccess] = useState(false);
   const [upiId, setUpiId] = useState("");
-  const [amount, setAmount] = useState(300);
+  const [amount, setAmount] = useState(200);
+  const [withdrawLoading, setWithdrawLoading] = useState(false);
+  const [totalWithdrawn, setTotalWithdrawn] = useState(0);
+  // Always use 200 as the minimum withdraw amount for display and logic
+  const minWithdraw = 200;
+
+  const fetchPrompts = async () => {
+    try {
+      setLoading(true);
+      const user = auth.currentUser;
+      if (!user) throw new Error("Not logged in");
+      const token = await user.getIdToken();
+
+      // 1️⃣ Get prompts
+      const res = await fetch(`${API_BASE}/ai-creator/prompts/me?status=all`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error("Failed to load prompts");
+      const data = await res.json();
+      setPrompts(Array.isArray(data) ? data : []);
+
+      // 2️⃣ Get earnings summary (also includes minWithdrawAmount)
+      const earningsRes = await fetch(`${API_BASE}/withdraw/summary`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (earningsRes.ok) {
+        const earningsData = await earningsRes.json();
+        setTotalWithdrawn(earningsData.totalWithdrawn || 0);
+        // Ignore backend minWithdrawAmount, always use 200
+      }
+    } catch (e: any) {
+      toast({
+        title: "Failed to load data",
+        description: e.message || String(e),
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchPrompts = async () => {
-      try {
-        setLoading(true);
-        const user = auth.currentUser;
-        if (!user) throw new Error("Not logged in");
-        const token = await user.getIdToken();
-        const res = await fetch(`${API_BASE}/ai-creator/prompts/me?status=all`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!res.ok) throw new Error("Failed to load prompts");
-        const data = await res.json();
-        setPrompts(Array.isArray(data) ? data : []);
-      } catch (e: any) {
-        toast({ title: "Failed to load prompts", description: e.message || String(e), variant: "destructive" });
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchPrompts();
-  }, [toast]);
+  }, []);
 
   const totalRemixes = prompts.reduce((s, p) => s + (p.remixes?.length || 0), 0);
   const uniqueRemixUsers = new Set<string>();
@@ -52,6 +73,19 @@ const CreatorEarnings = () => {
   const totalUsers = uniqueRemixUsers.size;
   const totalViews = prompts.reduce((s, p) => s + (p.views?.length || 0), 0);
   const totalEarnings = totalRemixes * REMIX_PAYOUT;
+  const availableBalance = Math.max(0, totalEarnings - totalWithdrawn);
+
+  useEffect(() => {
+    if (showWithdraw) {
+      setAmount(minWithdraw);
+    }
+  }, [showWithdraw, minWithdraw]);
+
+  useEffect(() => {
+    if (availableBalance < minWithdraw) {
+      setShowWithdraw(false);
+    }
+  }, [availableBalance, minWithdraw]);
 
   // chart: group earnings by month of created_at
   const chartMap: Record<string, { month: string; earnings: number; remixes: number }> = {};
@@ -91,8 +125,11 @@ const CreatorEarnings = () => {
             <div className="w-10 h-10 rounded-xl bg-green-500/20 flex items-center justify-center mb-3">
               <IndianRupee className="w-5 h-5 text-green-500" />
             </div>
-            <p className="text-sm text-muted-foreground mb-1">Total Earnings</p>
-            <p className="text-2xl md:text-3xl font-bold text-green-500">₹{totalEarnings}</p>
+            <p className="text-sm text-muted-foreground mb-1">Available Balance</p>
+            <p className="text-2xl md:text-3xl font-bold text-green-500">₹{availableBalance}</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Lifetime Earnings: ₹{totalEarnings}
+            </p>
             <p className="text-xs text-green-400 mt-1 flex items-center gap-1">
               <TrendingUp className="w-3 h-3" /> {totalRemixes} remixes
             </p>
@@ -100,12 +137,12 @@ const CreatorEarnings = () => {
           
           <div className="p-4 bg-card border border-border rounded-2xl">
             <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center mb-3">
-              <Users className="w-5 h-5 text-primary" />
+              <TrendingUp className="w-5 h-5 text-primary" />
             </div>
-            <p className="text-sm text-muted-foreground mb-1">Total Users</p>
-            <p className="text-2xl md:text-3xl font-bold">{totalUsers}</p>
+            <p className="text-sm text-muted-foreground mb-1">Total Remixes</p>
+            <p className="text-2xl md:text-3xl font-bold">{totalRemixes}</p>
             <p className="text-xs text-primary mt-1 flex items-center gap-1">
-              <TrendingUp className="w-3 h-3" /> {totalUsers} users
+              <TrendingUp className="w-3 h-3" /> {totalRemixes} remixes
             </p>
           </div>
 
@@ -121,21 +158,140 @@ const CreatorEarnings = () => {
         {/* Withdraw Button Section */}
         <div className="mb-6">
           <button
-            disabled={totalEarnings < 300}
-            onClick={() => setShowWithdraw(true)}
+            // Always allow opening the withdraw dropdown
+            disabled={false}
+            onClick={() => setShowWithdraw(v => !v)}
             className={`w-full py-3 rounded-xl font-semibold transition 
-              ${totalEarnings >= 300 
-                ? "bg-green-500 text-white hover:bg-green-600" 
-                : "bg-muted text-muted-foreground cursor-not-allowed"
+              ${availableBalance >= minWithdraw
+                ? "bg-green-500 text-white hover:bg-green-600"
+                : "bg-muted text-muted-foreground"
               }`}
           >
-            Withdraw (Minimum ₹300)
+            Withdraw
           </button>
-          {totalEarnings < 300 && (
-            <p className="text-xs text-muted-foreground mt-2 text-center">
-              Minimum withdraw amount is ₹300
-            </p>
+          {showWithdraw && !withdrawSuccess && (
+            <div className="mt-4 bg-muted/30 rounded-xl p-4">
+              <input
+                type="text"
+                placeholder="Enter UPI ID"
+                value={upiId}
+                onChange={(e) => setUpiId(e.target.value)}
+                className="w-full mb-3 p-2 rounded-lg bg-muted border border-border"
+              />
+              <p className="text-xs text-muted-foreground mb-2">
+                Available Balance: ₹{availableBalance}
+              </p>
+              <input
+                type="number"
+                min={minWithdraw}
+                value={amount}
+                onChange={(e) => setAmount(Number(e.target.value))}
+                onWheel={(e) => (e.target as HTMLInputElement).blur()}
+                className="w-full mb-2 p-2 rounded-lg bg-muted border border-border"
+              />
+              <p className="text-xs text-muted-foreground mb-2">
+                Minimum withdraw amount is ₹{minWithdraw}
+              </p>
+              <div className="flex gap-2 mt-2">
+                <button
+                  onClick={() => {
+                    setShowWithdraw(false);
+                    setUpiId("");
+                    setAmount(minWithdraw);
+                  }}
+                  className="flex-1 py-2 rounded-lg bg-muted"
+                >
+                  Cancel
+                </button>
+                <button
+                  disabled={withdrawLoading || amount < minWithdraw || amount > availableBalance || !upiId.trim()}
+                  onClick={async () => {
+                    setWithdrawLoading(true);
+                    if (!upiId.trim()) {
+                      toast({ 
+                        title: "UPI ID Required",
+                        variant: "destructive"
+                      });
+                      setWithdrawLoading(false);
+                      return;
+                    }
+                    if (amount < minWithdraw) {
+                      toast({ 
+                        title: `Minimum withdraw is ₹${minWithdraw}`,
+                        variant: "destructive"
+                      });
+                      setWithdrawLoading(false);
+                      return;
+                    }
+                    if (amount > availableBalance) {
+                      toast({ 
+                        title: "Insufficient balance",
+                        description: "You cannot withdraw more than your earnings",
+                        variant: "destructive"
+                      });
+                      setWithdrawLoading(false);
+                      return;
+                    }
+                    try {
+                      const user = auth.currentUser;
+                      if (!user) return;
+
+                      const token = await user.getIdToken();
+
+                      const res = await fetch(`${API_BASE}/withdraw/request`, {
+                        method: "POST",
+                        headers: {
+                          "Content-Type": "application/json",
+                          Authorization: `Bearer ${token}`,
+                        },
+                        body: JSON.stringify({ upiId, amount }),
+                      });
+
+                      if (!res.ok) {
+                        const errData = await res.json().catch(() => ({}));
+                        toast({
+                          title: "Error",
+                          description: errData.detail || "Failed to submit withdraw",
+                          variant: "destructive",
+                        });
+                        return;
+                      }
+
+                      setWithdrawSuccess(true);
+                      fetchPrompts();
+                      setUpiId("");
+                      setAmount(minWithdraw);
+
+                    } catch (err) {
+                      toast({
+                        title: "Error",
+                        description: "Failed to submit withdraw",
+                        variant: "destructive",
+                      });
+                    } finally {
+                      setWithdrawLoading(false);
+                    }
+                  }}
+                  className="flex-1 py-2 rounded-lg bg-green-500 text-white hover:bg-green-600 disabled:opacity-50"
+                >
+                  {withdrawLoading ? "Submitting..." : "Submit"}
+                </button>
+              </div>
+            </div>
           )}
+          {showWithdraw && withdrawSuccess && (
+            <div className="mt-4 bg-muted/30 rounded-xl p-4 flex flex-col items-center">
+              <p className="text-sm font-medium mb-2">Withdraw request submitted. Admin will review within 24 hours.</p>
+              <button
+                className="mt-2 px-4 py-2 rounded-lg bg-green-500 text-white hover:bg-green-600"
+                onClick={() => {
+                  setWithdrawSuccess(false);
+                  setShowWithdraw(false);
+                }}
+              >OK</button>
+            </div>
+          )}
+         
         </div>
 
         {/* Chart Section */}
@@ -212,81 +368,7 @@ const CreatorEarnings = () => {
           </div>
         </div>
       </div>
-    {/* Withdraw Popup Modal */}
-    {showWithdraw && (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-        <div className="bg-card p-6 rounded-2xl w-[90%] max-w-md">
-          <h2 className="text-lg font-bold mb-4">Withdraw Request</h2>
-
-          <input
-            type="text"
-            placeholder="Enter UPI ID"
-            value={upiId}
-            onChange={(e) => setUpiId(e.target.value)}
-            className="w-full mb-3 p-2 rounded-lg bg-muted border border-border"
-          />
-
-          <input
-            type="number"
-            min={300}
-            value={amount}
-            onChange={(e) => setAmount(Number(e.target.value))}
-            className="w-full mb-4 p-2 rounded-lg bg-muted border border-border"
-          />
-
-          <div className="flex gap-2">
-            <button
-              onClick={() => setShowWithdraw(false)}
-              className="flex-1 py-2 rounded-lg bg-muted"
-            >
-              Cancel
-            </button>
-
-            <button
-              onClick={async () => {
-                if (amount < 300) {
-                  toast({ title: "Minimum withdraw is ₹300" });
-                  return;
-                }
-
-                try {
-                  const user = auth.currentUser;
-                  if (!user) return;
-                  const token = await user.getIdToken();
-
-                  const res = await fetch(`${API_BASE}/withdraw/request`, {
-                    method: "POST",
-                    headers: {
-                      "Content-Type": "application/json",
-                      Authorization: `Bearer ${token}`,
-                    },
-                    body: JSON.stringify({ upiId, amount }),
-                  });
-
-                  if (!res.ok) throw new Error("Failed");
-
-                  toast({
-                    title: "Withdraw Submitted",
-                    description: "Admin will review within 24 hours",
-                  });
-
-                  setShowWithdraw(false);
-                } catch (err) {
-                  toast({
-                    title: "Error",
-                    description: "Failed to submit withdraw",
-                    variant: "destructive",
-                  });
-                }
-              }}
-              className="flex-1 py-2 rounded-lg bg-green-500 text-white hover:bg-green-600"
-            >
-              Submit
-            </button>
-          </div>
-        </div>
-      </div>
-    )}
+    {/* Withdraw modal replaced with dropdown/collapsible */}
     </MainLayout>
   );
 };

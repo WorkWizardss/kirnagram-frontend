@@ -20,12 +20,12 @@ import { useLocation, useNavigate } from "react-router-dom";
 const ratioOptions = [
   { label: "1:1", value: 1 },
   { label: "4:5", value: 4 / 5 },
-  { label: "16:9", value: 16 / 9 },
+  { label: "9:16", value: 9 / 16 },
 ];
 
 const API_BASE = "http://127.0.0.1:8000";
 
-type RatioLabel = "1:1" | "4:5" | "16:9";
+type RatioLabel = "1:1" | "4:5" | "16:9" | "9:16";
 
 const AddPostPage = () => {
   const navigate = useNavigate();
@@ -33,6 +33,7 @@ const AddPostPage = () => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [isVideo, setIsVideo] = useState(false);
   const [isCropOpen, setIsCropOpen] = useState(false);
   const [ratio, setRatio] = useState<RatioLabel>("1:1");
   const [zoom, setZoom] = useState(1);
@@ -189,10 +190,20 @@ const AddPostPage = () => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    if (!file.type.startsWith("image/")) {
+    if (file.type.startsWith("image/")) {
+      setIsVideo(false);
+      setRatio("1:1");
+      setDraftRatio("1:1");
+      setIsCropOpen(true);
+    } else if (file.type.startsWith("video/")) {
+      setIsVideo(true);
+      setRatio("9:16");
+      setDraftRatio("9:16");
+      setIsCropOpen(false); // No crop for video
+    } else {
       toast({
         title: "Unsupported file",
-        description: "Please select an image file to continue.",
+        description: "Please select an image or video file to continue.",
         variant: "destructive",
       });
       return;
@@ -209,9 +220,6 @@ const AddPostPage = () => {
     setDraftZoom(1);
     setDraftOffsetX(0);
     setDraftOffsetY(0);
-    setRatio("1:1");
-    setDraftRatio("1:1");
-    setIsCropOpen(true);
   };
 
   const handleTagAdd = (value: string) => {
@@ -348,8 +356,8 @@ const AddPostPage = () => {
   const handleSendPost = async () => {
     if (!selectedFile) {
       toast({
-        title: "Add an image",
-        description: "Select an image before posting.",
+        title: isVideo ? "Add a video" : "Add an image",
+        description: `Select a ${isVideo ? "video" : "image"} before posting.`,
         variant: "destructive",
       });
       return;
@@ -369,75 +377,78 @@ const AddPostPage = () => {
       setIsSubmitting(true);
       const token = await currentUser.getIdToken();
 
-      const createCroppedBlob = async () => {
-        if (!previewUrl || !previewContainerRef.current || !imageSize.width || !imageSize.height) {
-          return null;
-        }
-
-        const container = previewContainerRef.current;
-        const rect = container.getBoundingClientRect();
-        const containerWidth = rect.width;
-        const containerHeight = rect.height;
-        if (!containerWidth || !containerHeight) return null;
-
-        const img = new Image();
-        img.src = previewUrl;
-        await new Promise<void>((resolve, reject) => {
-          img.onload = () => resolve();
-          img.onerror = () => reject(new Error("Failed to load image"));
-        });
-
-        const baseScaleForExport = Math.max(
-          containerWidth / imageSize.width,
-          containerHeight / imageSize.height,
-        );
-        const scale = baseScaleForExport * zoom;
-
-        const imageRenderWidth = imageSize.width * scale;
-        const imageRenderHeight = imageSize.height * scale;
-
-        const imageLeft = containerWidth / 2 - imageRenderWidth / 2 + offsetX;
-        const imageTop = containerHeight / 2 - imageRenderHeight / 2 + offsetY;
-
-        const cropX = (0 - imageLeft) / scale;
-        const cropY = (0 - imageTop) / scale;
-        const cropWidth = containerWidth / scale;
-        const cropHeight = containerHeight / scale;
-
-        const targetWidth = 1080;
-        const targetHeight = Math.round(targetWidth / ratioValue);
-        const canvas = document.createElement("canvas");
-        canvas.width = targetWidth;
-        canvas.height = targetHeight;
-        const ctx = canvas.getContext("2d");
-        if (!ctx) return null;
-
-        ctx.drawImage(
-          img,
-          cropX,
-          cropY,
-          cropWidth,
-          cropHeight,
-          0,
-          0,
-          targetWidth,
-          targetHeight,
-        );
-
-        return await new Promise<Blob | null>((resolve) => {
-          canvas.toBlob((blob) => resolve(blob), "image/jpeg", 0.92);
-        });
-      };
-
-      const croppedBlob = await createCroppedBlob();
-      const fileToUpload = croppedBlob
-        ? new File([croppedBlob], selectedFile.name.replace(/\.[^/.]+$/, ".jpg"), {
+      let fileToUpload: File = selectedFile;
+      let fieldName = "image";
+      if (!isVideo) {
+        // Only crop images
+        const createCroppedBlob = async () => {
+          if (!previewUrl || !previewContainerRef.current || !imageSize.width || !imageSize.height) {
+            return null;
+          }
+          const container = previewContainerRef.current;
+          const rect = container.getBoundingClientRect();
+          const containerWidth = rect.width;
+          const containerHeight = rect.height;
+          if (!containerWidth || !containerHeight) return null;
+          const img = new Image();
+          img.src = previewUrl;
+          await new Promise<void>((resolve, reject) => {
+            img.onload = () => resolve();
+            img.onerror = () => reject(new Error("Failed to load image"));
+          });
+          const baseScaleForExport = Math.max(
+            containerWidth / imageSize.width,
+            containerHeight / imageSize.height,
+          );
+          const scale = baseScaleForExport * zoom;
+          const imageRenderWidth = imageSize.width * scale;
+          const imageRenderHeight = imageSize.height * scale;
+          const imageLeft = containerWidth / 2 - imageRenderWidth / 2 + offsetX;
+          const imageTop = containerHeight / 2 - imageRenderHeight / 2 + offsetY;
+          const cropX = (0 - imageLeft) / scale;
+          const cropY = (0 - imageTop) / scale;
+          const cropWidth = containerWidth / scale;
+          const cropHeight = containerHeight / scale;
+          const targetWidth = 1080;
+          const targetHeight = Math.round(targetWidth / ratioValue);
+          const canvas = document.createElement("canvas");
+          canvas.width = targetWidth;
+          canvas.height = targetHeight;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) return null;
+          ctx.drawImage(
+            img,
+            cropX,
+            cropY,
+            cropWidth,
+            cropHeight,
+            0,
+            0,
+            targetWidth,
+            targetHeight,
+          );
+          return await new Promise<Blob | null>((resolve) => {
+            canvas.toBlob((blob) => resolve(blob), "image/jpeg", 0.92);
+          });
+        };
+        const croppedBlob = await createCroppedBlob();
+        if (croppedBlob) {
+          fileToUpload = new File([croppedBlob], selectedFile.name.replace(/\.[^/.]+$/, ".jpg"), {
             type: "image/jpeg",
-          })
-        : selectedFile;
+          });
+        }
+        fieldName = "image";
+      } else {
+        // For video, no cropping in browser (future: add cropping UI)
+        fieldName = "video";
+      }
 
       const formData = new FormData();
-      formData.append("image", fileToUpload);
+      if (isVideo) {
+        formData.append("video", fileToUpload);
+      } else {
+        formData.append("image", fileToUpload);
+      }
       formData.append("ratio", ratio);
       formData.append("caption", caption);
       formData.append("tags", tags.join(","));
@@ -462,7 +473,7 @@ const AddPostPage = () => {
         createdPost = null;
       }
 
-      if (createdPost && (createdPost._id || createdPost.image_url)) {
+      if (createdPost && (createdPost._id || createdPost.image_url || createdPost.video_url)) {
         const targetId = createdPost.user_id || currentUser.uid;
         const cacheKey = `posts:${targetId}`;
         const cached = sessionStorage.getItem(cacheKey);
@@ -492,7 +503,7 @@ const AddPostPage = () => {
 
       toast({
         title: "Post uploaded",
-        description: "Your post has been created successfully.",
+        description: `Your ${isVideo ? "video" : "image"} post has been created successfully.`,
       });
 
       setSelectedFile(null);
@@ -504,6 +515,7 @@ const AddPostPage = () => {
       setOffsetX(0);
       setOffsetY(0);
       setRatio("1:1");
+      setIsVideo(false);
       navigate("/profile");
     } catch (error) {
       const message = error instanceof Error ? error.message : "Something went wrong";
@@ -556,7 +568,7 @@ const AddPostPage = () => {
             <input
               ref={fileInputRef}
               type="file"
-              accept="image/*"
+              accept="image/*,video/*"
               className="hidden"
               onChange={handleFileChange}
             />
@@ -568,34 +580,50 @@ const AddPostPage = () => {
               )}
             >
               {previewUrl ? (
-                <div
-                  className="relative w-full"
-                  style={{ aspectRatio: ratioValue }}
-                  ref={previewContainerRef}
-                >
-                  <div className="absolute inset-0 overflow-hidden rounded-2xl">
-                    <img
+                isVideo ? (
+                  <div className="relative w-full" style={{ aspectRatio: 9/16 }}>
+                    <video
                       src={previewUrl}
-                      alt="Selected"
-                      className="absolute top-1/2 left-1/2 object-cover max-w-none"
-                      style={{
-                        width: imageSize.width ? `${imageSize.width}px` : undefined,
-                        height: imageSize.height ? `${imageSize.height}px` : undefined,
-                        transform: `translate(-50%, -50%) translate(${offsetX}px, ${offsetY}px) scale(${zoom * previewBaseScale})`,
-                        transformOrigin: "center",
-                      }}
+                      autoPlay
+                      loop
+                      muted
+                      playsInline
+                      controls
+                      className="w-full h-full rounded-2xl object-contain bg-black"
+                      style={{ aspectRatio: 9/16 }}
                     />
                   </div>
-                </div>
+                ) : (
+                  <div
+                    className="relative w-full"
+                    style={{ aspectRatio: ratioValue }}
+                    ref={previewContainerRef}
+                  >
+                    <div className="absolute inset-0 overflow-hidden rounded-2xl">
+                      <img
+                        src={previewUrl}
+                        alt="Selected"
+                        className="absolute top-1/2 left-1/2 object-cover max-w-none"
+                        style={{
+                          width: imageSize.width ? `${imageSize.width}px` : undefined,
+                          height: imageSize.height ? `${imageSize.height}px` : undefined,
+                          transform: `translate(-50%, -50%) translate(${offsetX}px, ${offsetY}px) scale(${zoom * previewBaseScale})`,
+                          transformOrigin: "center",
+                        }}
+                      />
+                    </div>
+                  </div>
+                )
               ) : (
                 <div className="flex flex-col items-center gap-4 text-center px-6">
                   <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center">
                     <ImagePlus className="w-8 h-8 text-primary" />
                   </div>
                   <div>
-                    <p className="text-lg font-semibold">Select an image to start</p>
+                    <p className="text-lg font-semibold">Select an image or video to start</p>
                     <p className="text-sm text-muted-foreground">
-                      Choose a photo or artwork. You can crop it next.
+                      Choose a photo, artwork, or video. {" "}
+                      {isVideo ? "Video will be center cropped to 16:9 or 9:16." : "You can crop it next."}
                     </p>
                   </div>
                   <Button
@@ -603,7 +631,7 @@ const AddPostPage = () => {
                     onClick={() => fileInputRef.current?.click()}
                   >
                     <Plus className="w-4 h-4" />
-                    Choose Image
+                    Choose File
                   </Button>
                 </div>
               )}
@@ -672,77 +700,82 @@ const AddPostPage = () => {
         </div>
       </div>
 
-      <Dialog open={isCropOpen} onOpenChange={setIsCropOpen}>
-        <DialogContent
-          className="w-full max-w-none h-[100dvh] sm:h-auto sm:max-w-2xl rounded-none sm:rounded-2xl p-4 sm:p-6"
-          showClose={false}
-        >
-          <DialogHeader>
-            <DialogTitle>Adjust crop</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-6">
-            <div className="flex flex-wrap gap-2">
-              {ratioOptions.map((item) => (
-                <Button
-                  key={item.label}
-                  size="sm"
-                  variant={draftRatio === item.label ? "default" : "outline"}
-                  onClick={() => setDraftRatio(item.label as RatioLabel)}
-                >
-                  {item.label}
-                </Button>
-              ))}
-            </div>
+      {/* Only show crop dialog for images */}
+      {!isVideo && (
+        <Dialog open={isCropOpen} onOpenChange={setIsCropOpen}>
+          <DialogContent
+            className="w-full max-w-none h-[100dvh] sm:h-auto sm:max-w-2xl rounded-none sm:rounded-2xl p-4 sm:p-6"
+            showClose={false}
+          >
+            <DialogHeader>
+              <DialogTitle>Adjust crop</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-6">
+              <div className="flex flex-wrap gap-2">
+                {ratioOptions
+                  .filter((item) => item.label !== "9:16")
+                  .map((item) => (
+                    <Button
+                      key={item.label}
+                      size="sm"
+                      variant={draftRatio === item.label ? "default" : "outline"}
+                      onClick={() => setDraftRatio(item.label as RatioLabel)}
+                    >
+                      {item.label}
+                    </Button>
+                  ))}
+              </div>
 
-            <div
-              className="relative w-full rounded-2xl bg-black/90 overflow-hidden"
-              style={{ aspectRatio: draftRatioValue }}
-              ref={cropContainerRef}
-              onPointerDown={handlePointerDown}
-              onPointerMove={handlePointerMove}
-              onPointerUp={handlePointerUp}
-              onPointerLeave={handlePointerUp}
-              onWheel={handleWheel}
-              onTouchStart={handleTouchStart}
-              onTouchMove={handleTouchMove}
-              onTouchEnd={handleTouchEnd}
-              onTouchCancel={handleTouchEnd}
-              role="presentation"
-            >
-              {previewUrl ? (
-                <img
-                  src={previewUrl}
-                  alt="Crop preview"
-                  className="absolute top-1/2 left-1/2 object-cover max-w-none"
-                  style={{
-                    width: imageSize.width ? `${imageSize.width}px` : undefined,
-                    height: imageSize.height ? `${imageSize.height}px` : undefined,
-                    transform: `translate(-50%, -50%) translate(${draftOffsetX}px, ${draftOffsetY}px) scale(${draftZoom * baseScale})`,
-                    transformOrigin: "center",
-                  }}
-                />
-              ) : (
-                <div className="flex items-center justify-center h-full text-muted-foreground">
-                  Select an image to crop
-                </div>
-              )}
+              <div
+                className="relative w-full rounded-2xl bg-black/90 overflow-hidden"
+                style={{ aspectRatio: draftRatioValue }}
+                ref={cropContainerRef}
+                onPointerDown={handlePointerDown}
+                onPointerMove={handlePointerMove}
+                onPointerUp={handlePointerUp}
+                onPointerLeave={handlePointerUp}
+                onWheel={handleWheel}
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
+                onTouchCancel={handleTouchEnd}
+                role="presentation"
+              >
+                {previewUrl ? (
+                  <img
+                    src={previewUrl}
+                    alt="Crop preview"
+                    className="absolute top-1/2 left-1/2 object-cover max-w-none"
+                    style={{
+                      width: imageSize.width ? `${imageSize.width}px` : undefined,
+                      height: imageSize.height ? `${imageSize.height}px` : undefined,
+                      transform: `translate(-50%, -50%) translate(${draftOffsetX}px, ${draftOffsetY}px) scale(${draftZoom * baseScale})`,
+                      transformOrigin: "center",
+                    }}
+                  />
+                ) : (
+                  <div className="flex items-center justify-center h-full text-muted-foreground">
+                    Select an image to crop
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-          <DialogFooter className="mt-4">
-            <Button
-              onClick={() => {
-                setRatio(draftRatio);
-                setZoom(draftZoom);
-                setOffsetX(draftOffsetX);
-                setOffsetY(draftOffsetY);
-                setIsCropOpen(false);
-              }}
-            >
-              Next
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            <DialogFooter className="mt-4">
+              <Button
+                onClick={() => {
+                  setRatio(draftRatio);
+                  setZoom(draftZoom);
+                  setOffsetX(draftOffsetX);
+                  setOffsetY(draftOffsetY);
+                  setIsCropOpen(false);
+                }}
+              >
+                Next
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </MainLayout>
   );
 };

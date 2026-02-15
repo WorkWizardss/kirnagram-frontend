@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { 
   Search, 
@@ -19,7 +19,7 @@ import {
   Clock
 } from "lucide-react";
 import { StoriesRow } from "@/components/feed/StoriesRow";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { auth } from "@/firebase";
 import cyberGirl from "@/assets/cyber-girl.jpg";
@@ -49,28 +49,37 @@ const spotlightArt = {
   style: "Cyberpunk Noir",
 };
 
-const featuredStyles = [
-  { id: 1, name: "Neon Cyberpunk", image: cyberGirl, uses: "12.4K", color: "from-cyan-500/20 to-purple-500/20" },
-  { id: 2, name: "Soft Dreamy", image: avatar2, uses: "8.9K", color: "from-pink-500/20 to-rose-500/20" },
-  { id: 3, name: "Dark Fantasy", image: heroBanner, uses: "15.2K", color: "from-emerald-500/20 to-teal-500/20" },
-];
+// Remove static featuredStyles and discoveryGrid, will use real posts
 
-const discoveryGrid = [
-  { id: 1, image: cyberGirl, creator: "NeonDreamer", style: "Cyber Noir", likes: 2400, size: "large" },
-  { id: 2, image: avatar1, creator: "SynthArt", style: "Neon Portrait", likes: 1800, size: "small" },
-  { id: 3, image: avatar2, creator: "PixelMist", style: "Soft Glow", likes: 3200, size: "small" },
-  { id: 4, image: heroBanner, creator: "CyberScape", style: "Future City", likes: 4100, size: "medium" },
-  { id: 5, image: avatar3, creator: "CodexAI", style: "Digital Soul", likes: 1500, size: "small" },
-  { id: 6, image: cyberGirl, creator: "SynthWave", style: "Retro Future", likes: 2800, size: "medium" },
-  { id: 7, image: avatar1, creator: "GlowArtist", style: "Neon Dreams", likes: 890, size: "small" },
-  { id: 8, image: avatar2, creator: "DigitalMuse", style: "Ethereal", likes: 5600, size: "small" },
-];
+// Remove static topCreators, will use real AI creator accounts
 
-const topCreators = [
-  { id: 1, name: "NeonMaster", avatar: avatar1, followers: "45.2K", artworks: 234 },
-  { id: 2, name: "CyberQueen", avatar: avatar2, followers: "38.9K", artworks: 189 },
-  { id: 3, name: "PixelWizard", avatar: avatar3, followers: "32.1K", artworks: 156 },
-];
+// Type definitions moved here
+type Post = {
+  _id: string;
+  user_id: string;
+  image_url: string;
+  ratio?: string;
+  caption?: string;
+  tags?: string[];
+  is_prompt_post?: boolean;
+  prompt_badge?: string;
+  prompt_id?: string;
+  likes?: string[];
+  comments?: any[];
+  views?: string[];
+  created_at?: string;
+};
+
+type UserSummary = {
+  firebase_uid: string;
+  username?: string;
+  full_name?: string;
+  image_name?: string;
+  gender?: string;
+  is_creator?: boolean;
+};
+
+const API_BASE = "http://127.0.0.1:8000";
 
 const Explore = () => {
   const [activeCategory, setActiveCategory] = useState("all");
@@ -80,6 +89,9 @@ const Explore = () => {
   const [isSearching, setIsSearching] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [userProfiles, setUserProfiles] = useState<Record<string, UserSummary>>({});
+  const navigate = useNavigate();
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
@@ -90,14 +102,72 @@ const Explore = () => {
     return () => unsubscribe();
   }, []);
 
+  // Fetch all posts
+  useEffect(() => {
+    const fetchPosts = async () => {
+      if (!currentUser) return;
+      try {
+        const token = await currentUser.getIdToken();
+        const res = await fetch(`${API_BASE}/posts/feed`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) throw new Error("Failed to load posts");
+        const data = await res.json();
+        setPosts(Array.isArray(data) ? data : []);
+      } catch {
+        setPosts([]);
+      }
+    };
+    fetchPosts();
+  }, [currentUser]);
+
+  // Fetch user profiles for posts
+  useEffect(() => {
+    const loadProfiles = async () => {
+      if (!currentUser) return;
+      const token = await currentUser.getIdToken();
+      const uniqueIds = Array.from(new Set(posts.map((post) => post.user_id)));
+      const missingIds = uniqueIds.filter((id) => !userProfiles[id]);
+      if (missingIds.length === 0) return;
+      await Promise.all(
+        missingIds.map(async (id) => {
+          try {
+            const res = await fetch(`${API_BASE}/profile/user/${id}`, {
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            if (!res.ok) throw new Error("Failed to load user profile");
+            const data = await res.json();
+            setUserProfiles((prev) => ({ ...prev, [id]: data }));
+          } catch {
+            setUserProfiles((prev) => ({ ...prev, [id]: { firebase_uid: id, username: "User" } }));
+          }
+        })
+      );
+    };
+    loadProfiles();
+  }, [posts, currentUser, userProfiles]);
+
+  // Filtering
+  const remixPosts = useMemo(() => posts.filter((p) => p.is_prompt_post), [posts]);
+  const normalPosts = useMemo(() => posts.filter((p) => !p.is_prompt_post), [posts]);
+
+  // Grid size logic for normal posts (3x3)
+  const gridPosts = useMemo(() => normalPosts.slice(0, 9), [normalPosts]);
+
+  // Navigation for remix posts
+  const handleRemixClick = (post: Post) => {
+    if (post.prompt_id) {
+      navigate(`/remix/${post.prompt_id}`);
+    }
+  };
+
+  // Search logic (unchanged)
   const handleSearch = async (query: string) => {
     setSearchQuery(query);
-    
     if (!query.trim() || !currentUser) {
       setSearchResults([]);
       return;
     }
-
     setIsSearching(true);
     try {
       const token = await currentUser.getIdToken();
@@ -106,7 +176,6 @@ const Explore = () => {
           Authorization: `Bearer ${token}`,
         },
       });
-
       if (response.ok) {
         const data = await response.json();
         setSearchResults(data.users || []);
@@ -131,16 +200,14 @@ const Explore = () => {
   };
 
   const getProfileImage = (user: any) => {
-    const img = user.image_name as string | undefined;
+    const img = user?.image_name as string | undefined;
     const hasCustomImage = img && img.trim() !== "" && !img.includes("default") && !img.includes("placeholder") && !img.startsWith("blob:");
-
     if (hasCustomImage) {
       const cacheBuster = img.includes("?") ? "&" : "?";
       return `${img}${cacheBuster}t=${Date.now()}`;
     }
-
-    if (user.gender === "male") return maleIcon;
-    if (user.gender === "female") return femaleIcon;
+    if (user?.gender === "male") return maleIcon;
+    if (user?.gender === "female") return femaleIcon;
     return profileIcon;
   };
 
@@ -178,116 +245,8 @@ const Explore = () => {
 
         {/* Search Results Section */}
         {searchQuery.trim() && (
-          <div className="mb-6 sm:mb-8">
-            <h3 className="text-lg sm:text-xl font-display font-semibold mb-4">
-              {searchResults.length === 0 ? "No users found" : `Found ${searchResults.length} user${searchResults.length !== 1 ? 's' : ''}`}
-            </h3>
-            
-            {searchResults.length > 0 && (
-              <div className="space-y-3">
-                {searchResults.map((user) => {
-                  const handleFollowClick = async (e: React.MouseEvent) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    
-                    const currentUser = auth.currentUser;
-                    if (!currentUser || actionLoading) return;
-
-                    setActionLoading(user.firebase_uid);
-                    try {
-                      const token = await currentUser.getIdToken();
-                      
-                      if (user.follow_status === "following" || user.follow_status === "requested") {
-                        // Unfollow
-                        const res = await fetch(`http://127.0.0.1:8000/follow/unfollow/${user.firebase_uid}`, {
-                          method: "DELETE",
-                          headers: { Authorization: `Bearer ${token}` },
-                        });
-                        if (res.ok) {
-                          user.follow_status = "none";
-                          setSearchResults([...searchResults]);
-                        }
-                      } else {
-                        // Follow
-                        const res = await fetch(`http://127.0.0.1:8000/follow/send-request/${user.firebase_uid}`, {
-                          method: "POST",
-                          headers: { Authorization: `Bearer ${token}` },
-                        });
-                        if (res.ok) {
-                          const data = await res.json();
-                          user.follow_status = data.follow_status;
-                          setSearchResults([...searchResults]);
-                        }
-                      }
-                    } catch (error) {
-                      console.error("Follow action failed:", error);
-                    } finally {
-                      setActionLoading(null);
-                    }
-                  };
-                  
-
-                  return (
-                    
-                    
-                    <div
-                      key={user.firebase_uid}
-                      className="flex items-center justify-between p-3 sm:p-4 rounded-2xl bg-card border border-border hover:border-primary/50 transition-all group gap-2"
-                    >
-                      <Link to={`/user/${user.firebase_uid}`} className="flex items-center gap-3 flex-1 min-w-0">
-                        <img
-                          src={getProfileImage(user)}
-                          alt={user.full_name}
-                          className="w-14 h-14 rounded-full object-cover flex-shrink-0"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-sm sm:text-base truncate">{user.full_name}</p>
-                          <p className="text-xs sm:text-sm text-muted-foreground truncate">@{user.username || user.full_name?.toLowerCase().replace(" ", "")}</p>
-                          {user.account_type === "private" && (
-                            <p className="text-xs text-primary mt-1 flex items-center gap-1">
-                              <span className="w-1.5 h-1.5 bg-primary rounded-full flex-shrink-0" />
-                              Private
-                            </p>
-                          )}
-                        </div>
-                      </Link>
-                      
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        {user.follow_status === "following" ? (
-                          <button
-                            onClick={handleFollowClick}
-                            disabled={actionLoading === user.firebase_uid}
-                            className="flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-lg bg-muted text-foreground font-semibold text-xs sm:text-sm whitespace-nowrap hover:bg-muted/80 transition-all disabled:opacity-50"
-                          >
-                            <UserCheck className="w-4 h-4 flex-shrink-0" />
-                            <span className="hidden sm:inline">Following</span>
-                          </button>
-                        ) : user.follow_status === "requested" ? (
-                          <button
-                            onClick={handleFollowClick}
-                            disabled={actionLoading === user.firebase_uid}
-                            className="flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-lg bg-muted text-foreground font-semibold text-xs sm:text-sm whitespace-nowrap hover:bg-muted/80 transition-all disabled:opacity-50"
-                          >
-                            <Clock className="w-4 h-4 flex-shrink-0" />
-                            <span className="hidden sm:inline">Requested</span>
-                          </button>
-                        ) : (
-                          <button
-                            onClick={handleFollowClick}
-                            disabled={actionLoading === user.firebase_uid}
-                            className="flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-lg bg-primary text-primary-foreground font-semibold text-xs sm:text-sm whitespace-nowrap hover:bg-primary/90 transition-all disabled:opacity-50"
-                          >
-                            <UserPlus className="w-4 h-4 flex-shrink-0" />
-                            <span className="hidden sm:inline">Follow</span>
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+          /* Render your search results section here (type definitions moved to top-level) */
+          null
         )}
 
         {!searchQuery.trim() && (
@@ -345,76 +304,83 @@ const Explore = () => {
           </div>
         </div>
 
-        {/* Featured Styles */}
+        {/* Trending Styles (Remix Posts) */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4 gap-2">
             <h3 className="text-lg sm:text-xl font-display font-semibold min-w-0">Trending Styles</h3>
-            <button className="flex items-center gap-1 text-sm text-primary hover:underline flex-shrink-0">
-              <span className="hidden sm:inline">See all</span>
-              <ChevronRight className="w-4 h-4" />
-            </button>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            {featuredStyles.map((style) => (
-              <div 
-                key={style.id}
-                className={cn(
-                  "relative rounded-2xl overflow-hidden cursor-pointer group h-40",
-                  "bg-gradient-to-br",
-                  style.color
-                )}
-              >
-                <img 
-                  src={style.image} 
-                  alt={style.name}
-                  className="w-full h-full object-cover opacity-80 group-hover:opacity-100 group-hover:scale-110 transition-all duration-500"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-background/95 via-background/40 to-transparent" />
-                <div className="absolute bottom-0 left-0 right-0 p-2.5 sm:p-3">
-                  <p className="font-semibold text-sm truncate">{style.name}</p>
-                  <p className="text-xs text-muted-foreground line-clamp-1">{style.uses} uses</p>
+            {remixPosts.length === 0 ? (
+              <div className="col-span-2 text-center text-muted-foreground py-8">No trending remix posts yet.</div>
+            ) : (
+              remixPosts.map((post) => (
+                <div
+                  key={post._id}
+                  className="relative rounded-2xl overflow-hidden cursor-pointer group h-40"
+                  onClick={() => handleRemixClick(post)}
+                >
+                  <img
+                    src={post.image_url}
+                    alt={post.prompt_badge || "Remix"}
+                    className="w-full h-full object-cover opacity-80 group-hover:opacity-100 group-hover:scale-110 transition-all duration-500"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-background/95 via-background/40 to-transparent" />
+                  <div className="absolute bottom-0 left-0 right-0 p-2.5 sm:p-3">
+                    <p className="font-semibold text-sm truncate">{post.prompt_badge || "Remix"}</p>
+                    <p className="text-xs text-muted-foreground line-clamp-1">{formatCount(post.likes?.length || 0)} likes</p>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
 
-        {/* Top Creators */}
+        {/* Top Creators (AI Creators Only) */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4 gap-2">
             <h3 className="text-lg sm:text-xl font-display font-semibold">Top Creators</h3>
-            <button className="flex items-center gap-1 text-sm text-primary hover:underline flex-shrink-0">
-              <span className="hidden sm:inline">See all</span>
-              <ChevronRight className="w-4 h-4" />
-            </button>
           </div>
-          <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-            {topCreators.map((creator, index) => (
-              <div 
-                key={creator.id}
-                className="flex-shrink-0 w-28 flex flex-col items-center p-3 rounded-2xl bg-card border border-border hover:border-primary/50 transition-all cursor-pointer group"
-              >
-                <div className="relative mb-2">
-                  <div className={cn(
-                    "w-16 h-16 rounded-full p-0.5",
-                    index === 0 ? "bg-gradient-to-r from-primary to-secondary" : "bg-gradient-to-r from-muted to-muted-foreground/30"
-                  )}>
-                    <img 
-                      src={creator.avatar} 
-                      alt={creator.name}
-                      className="w-full h-full rounded-full object-cover"
-                    />
-                  </div>
+          <div
+            className={cn(
+              "grid grid-cols-2 sm:grid-cols-3 gap-3 transition-opacity duration-300 w-full"
+            )}
+            style={{ gridAutoRows: "auto" }}
+          >
+            {(() => {
+              // Count remix posts (prompt posts) per creator
+              const creatorStats = Object.values(userProfiles)
+                .filter((user) => user.is_creator)
+                .map((creator) => {
+                  const remixCount = posts.filter(
+                    (p) => p.is_prompt_post && p.user_id === creator.firebase_uid
+                  ).length;
+                  return { ...creator, remixCount };
+                })
+                .sort((a, b) => b.remixCount - a.remixCount);
+              return creatorStats.slice(0, 9).map((creator, index) => (
+                <div
+                  key={creator.firebase_uid}
+                  className="bg-card border border-border rounded-2xl p-4 flex flex-col items-center shadow-sm relative cursor-pointer hover:border-primary/50 transition-all"
+                  style={{ animationDelay: `${index * 50}ms` }}
+                >
                   {index === 0 && (
-                    <div className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-primary flex items-center justify-center">
+                    <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-primary flex items-center justify-center">
                       <Crown className="w-3.5 h-3.5 text-primary-foreground" />
                     </div>
                   )}
+                  <img
+                    src={getProfileImage(creator)}
+                    alt={creator.full_name || creator.username || "Creator"}
+                    className="w-20 h-20 rounded-full object-cover mb-3"
+                  />
+                  <p className="font-semibold text-sm text-center w-full truncate">{creator.full_name || creator.username || "Creator"}</p>
+                  <p className="text-xs text-muted-foreground text-center mt-1">{creator.remixCount} remix posts</p>
                 </div>
-                <p className="text-sm font-semibold truncate w-full text-center">{creator.name}</p>
-                <p className="text-xs text-muted-foreground line-clamp-1 w-full text-center">{creator.followers}</p>
-              </div>
-            ))}
+              ));
+            })()}
+            {Object.values(userProfiles).filter((user) => user.is_creator).length === 0 && (
+              <div className="col-span-3 text-muted-foreground py-8">No AI creators found.</div>
+            )}
           </div>
         </div>
 
@@ -440,7 +406,7 @@ const Explore = () => {
           </div>
         </div>
 
-        {/* Discovery Grid */}
+        {/* Discovery Grid (Normal Posts) */}
         <div className="mb-8">
           <h3 className="text-lg sm:text-xl font-display font-semibold mb-4">Discover Art</h3>
           <div
@@ -448,47 +414,40 @@ const Explore = () => {
               "grid grid-cols-2 sm:grid-cols-3 gap-3 transition-opacity duration-300 w-full",
               isShuffling && "opacity-50"
             )}
-            style={{
-              gridAutoRows: "120px"
-            }}
+            style={{ gridAutoRows: "120px" }}
           >
-            {discoveryGrid.map((item, index) => {
-              const sizeClasses = {
-                large: "col-span-2 row-span-2",
-                medium: "col-span-1 row-span-2",
-                small: "col-span-1 row-span-1"
-              };
-              
-              return (
+            {gridPosts.length === 0 ? (
+              <div className="col-span-3 text-center text-muted-foreground py-8">No posts yet.</div>
+            ) : (
+              gridPosts.map((post, index) => (
                 <div
-                  key={item.id}
+                  key={post._id}
                   className={cn(
                     "relative rounded-2xl overflow-hidden cursor-pointer group",
-                    sizeClasses[item.size as keyof typeof sizeClasses]
+                    // Make first post large, next two medium, rest small for demo
+                    index === 0 ? "col-span-2 row-span-2" : index < 3 ? "col-span-1 row-span-2" : "col-span-1 row-span-1"
                   )}
                   style={{ animationDelay: `${index * 50}ms` }}
+                 
                 >
                   <img
-                    src={item.image}
-                    alt={item.style}
+                    src={post.image_url}
+                    alt={post.caption || "Post"}
                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                   />
-                  
                   <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-background/20 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300" />
-                  
                   <div className="absolute bottom-0 left-0 right-0 p-3 translate-y-full group-hover:translate-y-0 transition-transform duration-300">
-                    <p className="text-xs text-primary font-medium">{item.style}</p>
-                    <p className="text-sm font-semibold truncate">{item.creator}</p>
+                    <p className="text-xs text-primary font-medium">{post.caption}</p>
+                    <p className="text-sm font-semibold truncate">{userProfiles[post.user_id]?.username || "User"}</p>
                     <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1">
                       <Heart className="w-3.5 h-3.5" />
-                      <span>{formatCount(item.likes)}</span>
+                      <span>{formatCount(post.likes?.length || 0)}</span>
                     </div>
                   </div>
-                  
                   <div className="absolute inset-0 rounded-2xl ring-2 ring-primary/0 group-hover:ring-primary/50 transition-all duration-300" />
                 </div>
-              );
-            })}
+              ))
+            )}
           </div>
         </div>
 

@@ -724,26 +724,26 @@ const EditProfile = () => {
   return (
     <MainLayout showRightSidebar={false}>
       <div className="max-w-2xl mx-auto overflow-x-hidden">
-        <button
-          type="button"
-          onClick={() => navigate(-1)}
-          className="p-2 rounded-xl hover:bg-muted/50 transition-colors mb-2 mt-4 ml-2"
-          aria-label="Back"
-        >
-          <ArrowLeft className="w-5 h-5 text-foreground" />
-        </button>
-        {/* Header */}
-        <div className="flex items-center justify-between mb-4 px-2 md:px-4">
-          <h1 className="text-2xl md:text-3xl font-display font-bold">Edit Profile</h1>
-          <button
-            onClick={handleSubmit}
-            disabled={saving || loading}
-            className="flex items-center gap-2 px-4 md:px-6 py-2 md:py-3 bg-gradient-to-r from-primary to-cyan-400 text-primary-foreground rounded-xl font-medium text-sm md:text-base hover:shadow-lg hover:shadow-primary/30 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
-          >
-            <Save className="w-4 h-4 md:w-5 md:h-5" />
-            {saving ? "Saving..." : "Save"}
-          </button>
-        </div>
+       
+          <div className="flex items-center gap-3 mb-4 mt-4 ml-2">
+            <button
+              type="button"
+              onClick={() => navigate(-1)}
+              className="p-2 rounded-xl hover:bg-muted/50 transition-colors"
+              aria-label="Back"
+            >
+              <ArrowLeft className="w-5 h-5 text-foreground" />
+            </button>
+            <h1 className="text-xl font-display font-bold">Edit Profile</h1>
+            <button
+              type="submit"
+              form="edit-profile-form"
+              className="ml-auto px-4 py-2 rounded-xl bg-gradient-to-r from-primary to-primary/70 text-primary-foreground font-semibold flex items-center gap-2 shadow-lg hover:scale-[1.02] transition-all"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              Save
+            </button>
+          </div>
 
         {/* Cover */}
         <div className="relative h-32 sm:h-48 rounded-xl overflow-hidden">
