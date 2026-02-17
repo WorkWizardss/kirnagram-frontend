@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { 
   Search, 
@@ -57,7 +57,9 @@ const spotlightArt = {
 type Post = {
   _id: string;
   user_id: string;
-  image_url: string;
+  image_url?: string;
+  video_url?: string;
+  type?: "image" | "video";
   ratio?: string;
   caption?: string;
   tags?: string[];
@@ -69,6 +71,7 @@ type Post = {
   views?: string[];
   created_at?: string;
 };
+
 
 type UserSummary = {
   firebase_uid: string;
@@ -154,6 +157,9 @@ const Explore = () => {
   // Grid size logic for normal posts (3x3)
   const gridPosts = useMemo(() => normalPosts.slice(0, 9), [normalPosts]);
 
+  // Auto-play DiscoverView after 5 seconds when a grid post is clicked
+ 
+
   // Navigation for remix posts
   const handleRemixClick = (post: Post) => {
     if (post.prompt_id) {
@@ -201,13 +207,34 @@ const Explore = () => {
 
   const getProfileImage = (user: any) => {
     const img = user?.image_name as string | undefined;
-    const hasCustomImage = img && img.trim() !== "" && !img.includes("default") && !img.includes("placeholder") && !img.startsWith("blob:");
-    if (hasCustomImage) {
+    const gender = user?.gender;
+    // Helper to check for valid URL
+    const isValidUrl = (url?: string) =>
+      typeof url === "string" &&
+      url.trim() !== "" &&
+      /^https?:\/\//.test(url) &&
+      !url.includes("default") &&
+      !url.includes("placeholder") &&
+      !url.startsWith("blob:");
+
+    // Debug log all relevant values
+    console.log("[ProfileImage] image_name:", img, "gender:", gender);
+
+    if (isValidUrl(img)) {
+      console.log("[ProfileImage] Using image URL:", img);
       const cacheBuster = img.includes("?") ? "&" : "?";
       return `${img}${cacheBuster}t=${Date.now()}`;
     }
-    if (user?.gender === "male") return maleIcon;
-    if (user?.gender === "female") return femaleIcon;
+if (gender === "male") {
+  console.log("[ProfileImage] Using maleIcon");
+  return maleIcon;
+}
+
+if (gender === "female") {
+  console.log("[ProfileImage] Using femaleIcon");
+  return femaleIcon;
+}
+    console.log("[ProfileImage] Using default profileIcon");
     return profileIcon;
   };
 
@@ -419,34 +446,55 @@ const Explore = () => {
             {gridPosts.length === 0 ? (
               <div className="col-span-3 text-center text-muted-foreground py-8">No posts yet.</div>
             ) : (
-              gridPosts.map((post, index) => (
-                <div
-                  key={post._id}
-                  className={cn(
-                    "relative rounded-2xl overflow-hidden cursor-pointer group",
-                    // Make first post large, next two medium, rest small for demo
-                    index === 0 ? "col-span-2 row-span-2" : index < 3 ? "col-span-1 row-span-2" : "col-span-1 row-span-1"
-                  )}
-                  style={{ animationDelay: `${index * 50}ms` }}
-                 
-                >
-                  <img
-                    src={post.image_url}
-                    alt={post.caption || "Post"}
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-background/20 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300" />
-                  <div className="absolute bottom-0 left-0 right-0 p-3 translate-y-full group-hover:translate-y-0 transition-transform duration-300">
-                    <p className="text-xs text-primary font-medium">{post.caption}</p>
-                    <p className="text-sm font-semibold truncate">{userProfiles[post.user_id]?.username || "User"}</p>
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1">
-                      <Heart className="w-3.5 h-3.5" />
-                      <span>{formatCount(post.likes?.length || 0)}</span>
+              gridPosts.map((post, index) => {
+                // Debug: log the image_url for each post
+                console.log('Grid post image_url:', post.image_url);
+                return (
+                  <div
+                    key={post._id}
+                    className={cn(
+                      "relative rounded-2xl overflow-hidden cursor-pointer group",
+                      index === 0 ? "col-span-2 row-span-2" : index < 3 ? "col-span-1 row-span-2" : "col-span-1 row-span-1"
+                    )}
+                    style={{ animationDelay: `${index * 50}ms` }}
+                    onClick={() => navigate(`/discoverview/${post._id}`)}
+
+                  >
+                    {post.type === "video" && post.video_url ? (
+ <video
+    src={post.video_url}
+    className="w-full h-full object-cover"
+    muted
+    playsInline
+    autoPlay
+    loop
+    preload="metadata"
+  />
+) : (
+  <img
+    src={post.image_url}
+    alt={post.caption || "Post"}
+    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+    onError={(e) => {
+      e.currentTarget.onerror = null;
+      e.currentTarget.src = "/broken-image.png";
+    }}
+  />
+)}
+
+                    <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-background/20 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300" />
+                    <div className="absolute bottom-0 left-0 right-0 p-3 translate-y-full group-hover:translate-y-0 transition-transform duration-300">
+                      <p className="text-xs text-primary font-medium">{post.caption}</p>
+                      <p className="text-sm font-semibold truncate">{userProfiles[post.user_id]?.username || "User"}</p>
+                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1">
+                        <Heart className="w-3.5 h-3.5" />
+                        <span>{formatCount(post.likes?.length || 0)}</span>
+                      </div>
                     </div>
+                    <div className="absolute inset-0 rounded-2xl ring-2 ring-primary/0 group-hover:ring-primary/50 transition-all duration-300" />
                   </div>
-                  <div className="absolute inset-0 rounded-2xl ring-2 ring-primary/0 group-hover:ring-primary/50 transition-all duration-300" />
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>

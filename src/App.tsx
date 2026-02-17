@@ -12,6 +12,7 @@ import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import ForgotPassword from "./pages/ForgotPassword";
 import Explore from "./pages/Explore";
+import DiscoverView from "./pages/DiscoverView";
 import Profile from "./pages/Profile";
 import UserProfile from "./pages/UserProfile";
 import FollowList from "./pages/FollowList";
@@ -35,6 +36,7 @@ import Credits from "./pages/Credits";
 import Remix from "./pages/Remix";
 import RemixViewer from "./pages/RemixViewer";
 import ChangePassword from "./pages/ChangePassword";
+import { VideoSoundProvider } from "@/context/VideoSoundContext";
 
 const queryClient = new QueryClient();
 
@@ -82,6 +84,7 @@ const App = () => (
     <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
       <TooltipProvider>
         <Toaster />
+        <VideoSoundProvider>
         <Sonner />
         <BrowserRouter>
           <Routes>
@@ -118,6 +121,18 @@ const App = () => (
                 </PrivateRoute>
               }
             />
+            
+            
+            <Route
+             path="/discoverview/:postId?"
+             element={
+              <PrivateRoute>
+             <DiscoverView />
+              </PrivateRoute>
+             }
+            />
+
+
             <Route path="/posts" element={<PrivateRoute><PostsView /></PrivateRoute>} />
             <Route path="/posts/view/:userId" element={<PrivateRoute><PostsView /></PrivateRoute>} />
             <Route path="/story/upload" element={<PrivateRoute><StoryUpload /></PrivateRoute>} />
@@ -130,6 +145,7 @@ const App = () => (
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
+        </VideoSoundProvider>
       </TooltipProvider>
     </ThemeProvider>
   </QueryClientProvider>

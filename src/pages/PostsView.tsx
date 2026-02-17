@@ -10,6 +10,7 @@ import { ArrowLeft, Eye, Heart, MessageCircle, MoreVertical, Send, Share2, Trash
 import maleIcon from "@/assets/maleicon.png";
 import femaleIcon from "@/assets/femaleicon.png";
 import profileIcon from "@/assets/profileicon.png";
+import { Volume2, VolumeX } from "lucide-react";
 
 const API_BASE = "http://127.0.0.1:8000";
 
@@ -17,6 +18,8 @@ type Post = {
   _id: string;
   user_id: string;
   image_url: string;
+  video_url?: string;
+  type?: "image" | "video";
   ratio?: string;
   caption?: string;
   tags?: string[];
@@ -60,7 +63,7 @@ const PostsView = () => {
   const viewType = (location.state as any)?.viewType as "posts" | "prompts" | undefined;
   const openLikesPostId = (location.state as any)?.openLikesPostId as string | undefined;
   const openCommentsPostId = (location.state as any)?.openCommentsPostId as string | undefined;
-
+  const [isMuted, setIsMuted] = useState(true);
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [activePostId, setActivePostId] = useState<string | null>(null);
@@ -76,8 +79,11 @@ const PostsView = () => {
   const postRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const viewTimers = useRef<Record<string, number>>({});
   const viewedPostIds = useRef<Set<string>>(new Set());
+  const videoRefs = useRef<Record<string, HTMLVideoElement | null>>({});
 
   const currentUserId = auth.currentUser?.uid;
+
+  const isVideo = (url?: string) => typeof url === "string" && /\.(mp4|webm|ogg)$/i.test(url);
 
   const orderedPosts = useMemo(() => {
     if (typeof startIndex === "number" && posts.length > 0) {
@@ -90,7 +96,23 @@ const PostsView = () => {
     return [posts[index], ...posts.slice(0, index), ...posts.slice(index + 1)];
   }, [posts, initialPostId, startIndex]);
 
-  useEffect(() => {
+
+const toggleMute = () => {
+  setIsMuted((prev) => {
+    const newState = !prev;
+
+    // Apply mute state to all videos
+    Object.values(videoRefs.current).forEach((video) => {
+      if (video) {
+        video.muted = newState;
+      }
+    });
+
+    return newState;
+  });
+};
+
+useEffect(() => {
     if (statePosts && Array.isArray(statePosts)) {
       setPosts(statePosts);
       const targetId = userId || auth.currentUser?.uid;
@@ -198,6 +220,46 @@ const PostsView = () => {
       return;
     }
   }, [loading, initialOpenHandled, openLikesPostId, openCommentsPostId]);
+  useEffect(() => {
+  const observer = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        const video = entry.target as HTMLVideoElement;
+
+        if (entry.isIntersecting && entry.intersectionRatio >= 0.7) {
+
+          // Pause ALL other videos
+          Object.values(videoRefs.current).forEach((v) => {
+            if (v && v !== video) {
+              v.pause();
+              v.currentTime = 0; // RESET other videos
+            }
+          });
+
+          // Start from beginning
+          video.currentTime = 0;
+          video.play().catch(() => {});
+
+        } else {
+          video.pause();
+          video.currentTime = 0; // IMPORTANT: reset when leaving screen
+        }
+      });
+    },
+    { threshold: 0.7 }
+  );
+
+  const timer = setTimeout(() => {
+    Object.values(videoRefs.current).forEach((video) => {
+      if (video) observer.observe(video);
+    });
+  }, 200);
+
+  return () => {
+    clearTimeout(timer);
+    observer.disconnect();
+  };
+}, [posts]);
 
   const isValidRemoteImage = (url?: string) =>
     typeof url === "string" &&
@@ -419,6 +481,44 @@ const PostsView = () => {
     };
   }, [posts]);
 
+  // STEP 2 — ADD THIS NEW CLEAN VERSION
+useEffect(() => {
+  const observer = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        const video = entry.target as HTMLVideoElement;
+
+        if (entry.isIntersecting && entry.intersectionRatio >= 0.6) {
+          // Pause all other videos
+          Object.values(videoRefs.current).forEach((v) => {
+            if (v && v !== video) {
+              v.pause();
+              v.currentTime = 0;
+            }
+          });
+
+          video.play().catch(() => {});
+        } else {
+          video.pause();
+        }
+      });
+    },
+    { threshold: 0.6 }
+  );
+
+  // IMPORTANT: observe after small delay
+  const timer = setTimeout(() => {
+    Object.values(videoRefs.current).forEach((video) => {
+      if (video) observer.observe(video);
+    });
+  }, 300);
+
+  return () => {
+    clearTimeout(timer);
+    observer.disconnect();
+  };
+}, [posts]);
+
   const handleShare = async (post: Post) => {
     const shareUrl = `${window.location.origin}/posts/view/${post.user_id}?postId=${post._id}`;
     try {
@@ -563,18 +663,52 @@ const PostsView = () => {
                     </div>
                   </div>
                   <div className="relative w-full overflow-hidden bg-black">
-                    <img
-                      src={post.image_url}
-                      alt={post.caption || "Post"}
-                      className="w-full object-cover"
-                      style={{ aspectRatio: post.ratio?.replace(":", "/") || "1 / 1" }}
-                    />
-                    {post.is_prompt_post && (
+
+{post.type === "video" ? (
+  
+  <>
+    <video
+      ref={(el) => {
+        if (el) videoRefs.current[post._id] = el;
+      }}
+      src={post.video_url}
+      className="w-full object-cover"
+      style={{ aspectRatio: post.ratio?.replace(":", "/") || "9 / 16" }}
+      loop
+      muted={isMuted}
+      playsInline
+      preload="metadata"
+    />
+    <button
+      onClick={toggleMute}
+      className="
+        absolute bottom-4 right-4
+        bg-black/60 backdrop-blur-md
+        text-white
+        rounded-full
+        p-3
+        transition
+        active:scale-90
+      "
+    >
+      {isMuted ? "🔇" : "🔊"}
+    </button>
+  </>
+) : (
+  <img
+    src={post.image_url}
+    alt={post.caption || "Post"}
+    className="w-full object-cover"
+    style={{ aspectRatio: post.ratio?.replace(":", "/") || "1 / 1" }}
+  />
+)}
+{post.is_prompt_post && (
                       <span className="absolute top-3 right-3 px-3 py-1 text-xs font-semibold bg-primary/90 text-primary-foreground rounded-full flex items-center gap-1">
                         <span className="text-sm">🔥</span> {post.prompt_badge || "Prompt"}
                       </span>
                     )}
-                  </div>
+</div>
+
                   {post.is_prompt_post && post.tags && post.tags.length > 0 && (
                     <div className="px-3 pt-3 flex flex-wrap gap-2">
                       {post.tags.map((tag) => (

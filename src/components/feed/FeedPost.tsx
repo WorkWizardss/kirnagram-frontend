@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { MoreHorizontal, Heart, MessageCircle, Eye, BadgeCheck, TrendingUp, Sparkles, Share2, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
-
+import { useEffect } from "react";
+import { useVideoSound } from "@/context/VideoSoundContext";
 interface FeedPostProps {
   author: {
     name: string;
@@ -12,6 +13,7 @@ interface FeedPostProps {
     isVerified?: boolean;
   };
   image: string;
+  mediaType?: "image" | "video";
   ratio?: string;
   tags?: string[];
   badge?: string;
@@ -35,6 +37,7 @@ interface FeedPostProps {
 export function FeedPost({
   author,
   image,
+  mediaType,
   ratio,
   tags,
   badge,
@@ -56,12 +59,47 @@ export function FeedPost({
 }: FeedPostProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [captionExpanded, setCaptionExpanded] = useState(false);
-
+  const { isMuted, toggleMute } = useVideoSound();
+  const videoRef = useRef<HTMLVideoElement>(null);
+  
   const formatCount = (value: number) => {
     if (value < 1000) return `${value}`;
     if (value < 1_000_000) return `${(value / 1000).toFixed(1).replace(/\.0$/, "")}k`;
     return `${(value / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
   };
+useEffect(() => {
+  const video = videoRef.current;
+  if (!video) return;
+
+  const observer = new IntersectionObserver(
+    ([entry]) => {
+      if (!video) return;
+
+      if (entry.isIntersecting && entry.intersectionRatio >= 0.6) {
+
+        // Pause all other videos
+        document.querySelectorAll("video").forEach((v) => {
+          if (v !== video) {
+            v.pause();
+          }
+        });
+
+        // Restart from beginning (Reels behavior)
+        video.currentTime = 0;
+        video.play().catch(() => {});
+
+      } else {
+        video.pause();
+      }
+    },
+    { threshold: 0.6 }
+  );
+
+  observer.observe(video);
+
+  return () => observer.disconnect();
+}, []);
+
 
   return (
     <>
@@ -149,50 +187,57 @@ export function FeedPost({
           </div>
         )}
 
-        {/* Image */}
-        {onPostClick ? (
-          <button className="relative w-full" onClick={onPostClick}>
-            <img
-              src={image}
-              alt="Post"
-              className="w-full object-cover"
-              style={{ aspectRatio: ratio?.replace(":", "/") || "4 / 5" }}
-            />
-            {showRemix && badge && (
-              <span className="absolute top-3 right-3 px-3 py-1 text-xs font-semibold bg-primary/90 text-primary-foreground rounded-full flex items-center gap-1">
-                <span className="text-sm">🔥</span> {badge}
-              </span>
-            )}
-            {showRemix && (
-              <div className="absolute bottom-3 left-3">
-                <span className="px-3 py-1 text-xs font-medium bg-emerald-500/20 text-emerald-400 rounded-full border border-emerald-500/30 backdrop-blur-sm">
-                  ✨ Ethical AI
-                </span>
-              </div>
-            )}
-          </button>
-        ) : (
-          <div className="relative w-full">
-            <img
-              src={image}
-              alt="Post"
-              className="w-full object-cover"
-              style={{ aspectRatio: ratio?.replace(":", "/") || "4 / 5" }}
-            />
-            {showRemix && badge && (
-              <span className="absolute top-3 right-3 px-3 py-1 text-xs font-semibold bg-primary/90 text-primary-foreground rounded-full flex items-center gap-1">
-                <span className="text-sm">🔥</span> {badge}
-              </span>
-            )}
-            {showRemix && (
-              <div className="absolute bottom-3 left-3">
-                <span className="px-3 py-1 text-xs font-medium bg-emerald-500/20 text-emerald-400 rounded-full border border-emerald-500/30 backdrop-blur-sm">
-                  ✨ Ethical AI
-                </span>
-              </div>
-            )}
-          </div>
-        )}
+{mediaType === "video" ? (
+  <div className="relative w-full">
+<video
+  ref={videoRef}
+  src={image}
+  className="w-full object-cover"
+  style={{ aspectRatio: ratio?.replace(":", "/") || "9 / 16" }}
+  loop
+  playsInline
+  muted={isMuted}
+  controls={false}
+  preload="metadata"
+/>
+
+
+
+
+
+    {/* Mute / Unmute Button */}
+<button
+  onClick={toggleMute}
+  className="
+    absolute bottom-5 right-5
+    bg-black/60 backdrop-blur-md
+    text-white
+    rounded-full
+    p-3
+    transition
+    duration-200
+    active:scale-90
+  "
+>
+  {isMuted ? "🔇" : "🔊"}
+</button>
+
+
+
+
+
+
+  </div>
+) : (
+  <button className="relative w-full" onClick={onPostClick}>
+    <img
+      src={image}
+      alt="Post"
+      className="w-full object-cover"
+      style={{ aspectRatio: ratio?.replace(":", "/") || "4 / 5" }}
+    />
+  </button>
+)}
 
         {/* Remix This Style Button */}
         {showRemix && (

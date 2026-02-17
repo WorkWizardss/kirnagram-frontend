@@ -1,5 +1,5 @@
-import React from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import React, { useRef } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { FeedTabs } from "@/components/feed/FeedTabs";
@@ -22,6 +22,7 @@ type Post = {
   _id: string;
   user_id: string;
   image_url: string;
+  video_url?: string;
   ratio?: string;
   caption?: string;
   likes?: string[];
@@ -32,6 +33,7 @@ type Post = {
   prompt_id?: string;
   created_at?: string;
   views?: string[];
+  type?: string;
 };
 
 type UserSummary = {
@@ -55,6 +57,8 @@ type Comment = {
 const Index = () => {
   const navigate = useNavigate();
   const [posts, setPosts] = useState<Post[]>([]);
+    // Global mute state for all videos
+
   const [loading, setLoading] = useState(true);
   const [userProfiles, setUserProfiles] = useState<Record<string, UserSummary>>({});
   const [activePostId, setActivePostId] = useState<string | null>(null);
@@ -346,16 +350,17 @@ const Index = () => {
     };
   }, [posts]);
 
+
   return (
     <MainLayout>
       <div className="max-w-2xl mx-auto space-y-6 overflow-x-hidden">
-        
-
         {/* Feed Tabs */}
         <FeedTabs />
 
         {/* Hero Banner */}
         <HeroBanner />
+
+      
 
         {/* Feed Posts */}
         {loading ? (
@@ -364,59 +369,70 @@ const Index = () => {
           <div className="py-10 text-center text-muted-foreground">No posts yet.</div>
         ) : (
           <div className="space-y-6">
-        {orderedPosts.map((post, index) => {
-  const author = userProfiles[post.user_id];
-  const showRemix = Boolean(post.is_prompt_post);
-  const isLiked = auth.currentUser?.uid
-    ? post.likes?.includes(auth.currentUser.uid)
-    : false;
+            {orderedPosts.map((post, index) => {
+              const author = userProfiles[post.user_id];
+              const showRemix = Boolean(post.is_prompt_post);
+              const isLiked = auth.currentUser?.uid
+                ? post.likes?.includes(auth.currentUser.uid)
+                : false;
 
-  return (
-    <React.Fragment key={post._id}>
-      <div
-        data-post-id={post._id}
-        ref={(node) => {
-          postRefs.current[post._id] = node;
-        }}
-      >
-        <FeedPost
-          author={{
-            name: author?.full_name || author?.username || "User",
-            username: author?.username ? `@${author.username}` : "@user",
-            avatar: getProfileImage(author),
-            isVerified: author?.is_creator,
-          }}
-          image={post.image_url}
-          ratio={post.ratio}
-          caption={post.caption}
-          tags={showRemix ? post.tags || [] : []}
-          badge={showRemix ? post.prompt_badge || "Creator" : undefined}
-          likes={post.likes?.length ?? 0}
-          comments={post.comments?.length ?? 0}
-          views={post.views?.length ?? 0}
-          isLiked={Boolean(isLiked)}
-          showRemix={showRemix}
-          onLike={() => handleLike(post._id)}
-          onOpenLikes={() => openLikes(post._id)}
-          onOpenComments={() => openComments(post._id)}
-          onShare={() => handleShare(post)}
-          onAddToStory={() =>
-            navigate("/story/upload", { state: { imageUrl: post.image_url } })
-          }
+              // For video posts, auto-play the first video and respect global mute
+              const isVideo = post.type === "video" || (post.video_url && !post.image_url);
 
-        />
-      </div>
+              return (
+                <React.Fragment key={post._id}>
+                  <div
+                    data-post-id={post._id}
+                    ref={(node) => {
+                      postRefs.current[post._id] = node;
+                    }}
+                  >
+                    <FeedPost
+                      author={{
+                        name: author?.full_name || author?.username || "User",
+                        username: author?.username ? `@${author.username}` : "@user",
+                        avatar: getProfileImage(author),
+                        isVerified: author?.is_creator,
+                      }}
+                      image={post.image_url || post.video_url || ""}
+                      mediaType={isVideo ? "video" : "image"}
+                      ratio={post.ratio}
+                      caption={post.caption}
+                      tags={showRemix ? post.tags || [] : []}
+                      badge={showRemix ? post.prompt_badge || "Creator" : undefined}
+                      likes={post.likes?.length ?? 0}
+                      comments={post.comments?.length ?? 0}
+                      views={post.views?.length ?? 0}
+                      isLiked={Boolean(isLiked)}
+                      showRemix={showRemix}
+                      onLike={() => handleLike(post._id)}
+                      onOpenLikes={() => openLikes(post._id)}
+                      onOpenComments={() => openComments(post._id)}
+                      onShare={() => handleShare(post)}
+                      onAddToStory={() =>
+                        navigate("/story/upload", {
+                          state: { imageUrl: post.image_url || post.video_url },
+                        })
+                      }
+                      onRemix={() => {
+                        if (post.prompt_id) {
+                          navigate(`/remix/${post.prompt_id}`);
+                        } else {
+                          navigate(`/remix/${post._id}`);
+                        }
+                      }}
+                      // Pass global mute state to FeedPost (if it supports it)
+                    />
+                  </div>
 
-      {index === 1 && (
-        <div key="suggested-users">
-          <SuggestedUsers />
-        </div>
-      )}
-    </React.Fragment>
-  );
-})}
-
-
+                  {index === 1 && (
+                    <div key="suggested-users">
+                      <SuggestedUsers />
+                    </div>
+                  )}
+                </React.Fragment>
+              );
+            })}
           </div>
         )}
       </div>

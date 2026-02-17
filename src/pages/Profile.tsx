@@ -25,7 +25,7 @@ import maleIcon from "@/assets/maleicon.png";
 import femaleIcon from "@/assets/femaleicon.png";
 import heroBanner from "@/assets/hero-banner.jpg";
 import { auth } from "../firebase";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 
 const tabs = [
   { id: "posts", label: "Posts", icon: Grid },
@@ -98,90 +98,121 @@ const Profile = () => {
     });
   };
 
+  // 🔥 STEP 1 — Add Ref Storage
+  const videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
+
   useEffect(() => {
-  const unsubscribe = auth.onAuthStateChanged(async (user) => {
-    if (!user) {
-      setLoading(false);
-      return;
-    }
-
-    try {
-      const token = await user.getIdToken();
-
-      // Fetch profile
-      const res = await fetch("http://127.0.0.1:8000/profile/me", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (!res.ok) {
-        throw new Error(`Profile fetch failed: ${res.status} ${res.statusText}`);
+    const unsubscribe = auth.onAuthStateChanged(async (user) => {
+      if (!user) {
+        setLoading(false);
+        return;
       }
 
-      const data = await res.json();
-      setProfile(data);
+      try {
+        const token = await user.getIdToken();
 
-      // Fetch stats
-      const statsRes = await fetch("http://127.0.0.1:8000/profile/stats", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+        // Fetch profile
+        const res = await fetch("http://127.0.0.1:8000/profile/me", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
 
-      if (!statsRes.ok) {
-        throw new Error(`Stats fetch failed: ${statsRes.status} ${statsRes.statusText}`);
+        if (!res.ok) {
+          throw new Error(`Profile fetch failed: ${res.status} ${res.statusText}`);
+        }
+
+        const data = await res.json();
+        setProfile(data);
+
+        // Fetch stats
+        const statsRes = await fetch("http://127.0.0.1:8000/profile/stats", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!statsRes.ok) {
+          throw new Error(`Stats fetch failed: ${statsRes.status} ${statsRes.statusText}`);
+        }
+
+        const statsData = await statsRes.json();
+        setStats(statsData);
+
+        // Fetch my stories
+        const storiesRes = await fetch("http://localhost:8000/stories/my-stories", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (storiesRes.ok) {
+          const storiesData = await storiesRes.json();
+          const stories = Array.isArray(storiesData) ? storiesData : [];
+          setMyStories(stories);
+          console.log("📖 My stories loaded:", stories.length, stories);
+        } else {
+          console.error("❌ Failed to fetch stories:", storiesRes.status);
+          setMyStories([]);
+        }
+
+        // Fetch my posts
+        const postsRes = await fetch(`http://127.0.0.1:8000/posts/user/${user.uid}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (postsRes.ok) {
+          const postsData = await postsRes.json();
+          const posts = Array.isArray(postsData) ? postsData : [];
+          const promptPosts = posts.filter((p: any) => p.is_prompt_post);
+          const normalPosts = posts.filter((p: any) => !p.is_prompt_post);
+          setMyPosts(normalPosts);
+          setMyPromptPosts(promptPosts);
+        } else {
+          console.error("❌ Failed to fetch posts:", postsRes.status);
+          setMyPosts([]);
+          setMyPromptPosts([]);
+        }
+
+      } catch (error) {
+        console.error("Failed to load profile:", error);
+      } finally {
+        setLoading(false);
       }
+    });
 
-      const statsData = await statsRes.json();
-      setStats(statsData);
+    return () => unsubscribe();
+  }, []);
 
-      // Fetch my stories
-      const storiesRes = await fetch("http://localhost:8000/stories/my-stories", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (storiesRes.ok) {
-        const storiesData = await storiesRes.json();
-        const stories = Array.isArray(storiesData) ? storiesData : [];
-        setMyStories(stories);
-        console.log("📖 My stories loaded:", stories.length, stories);
-      } else {
-        console.error("❌ Failed to fetch stories:", storiesRes.status);
-        setMyStories([]);
-      }
-
-      // Fetch my posts
-      const postsRes = await fetch(`http://127.0.0.1:8000/posts/user/${user.uid}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (postsRes.ok) {
-        const postsData = await postsRes.json();
-        const posts = Array.isArray(postsData) ? postsData : [];
-        const promptPosts = posts.filter((p: any) => p.is_prompt_post);
-        const normalPosts = posts.filter((p: any) => !p.is_prompt_post);
-        setMyPosts(normalPosts);
-        setMyPromptPosts(promptPosts);
-      } else {
-        console.error("❌ Failed to fetch posts:", postsRes.status);
-        setMyPosts([]);
-        setMyPromptPosts([]);
-      }
-
-    } catch (error) {
-      console.error("Failed to load profile:", error);
-    } finally {
-      setLoading(false);
-    }
-  });
-
-  return () => unsubscribe();
-}, []);
+  // 🔥 STEP 2 — Add Auto Play Effect
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          const video = entry.target as HTMLVideoElement;
+          if (entry.isIntersecting) {
+            video.currentTime = 0;
+            video.play().catch(() => {});
+            // Stop after 5 seconds
+            setTimeout(() => {
+              video.pause();
+              video.currentTime = 0;
+            }, 5000);
+          } else {
+            video.pause();
+            video.currentTime = 0;
+          }
+        });
+      },
+      { threshold: 0.6 }
+    );
+    videoRefs.current.forEach((video) => {
+      if (video) observer.observe(video);
+    });
+    return () => observer.disconnect();
+  }, [myPosts]);
 
   // Show loading state
   if (loading) {
@@ -451,6 +482,7 @@ const Profile = () => {
 
         {activeTab === "posts" ? (
           myPosts.length > 0 ? (
+            // ✅ Updated Posts Grid
             <div className="grid grid-cols-3 gap-1 sm:gap-2 p-1 sm:p-2">
               {myPosts.map((post: any, index: number) => (
                 <button
@@ -459,11 +491,23 @@ const Profile = () => {
                   className="group relative aspect-square overflow-hidden bg-muted"
                   onClick={() => openPost(index)}
                 >
-                  <img
-                    src={post.image_url}
-                    alt={post.caption || "Post"}
-                    className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                  />
+                  {post.video_url ? (
+                    <video
+                      ref={(el) => (videoRefs.current[index] = el)}
+                      src={post.video_url}
+                      muted
+                      playsInline
+                      preload="metadata"
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <img
+                      src={post.image_url}
+                      alt={post.caption || "Post"}
+                      className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                    />
+                  )}
+                  {/* Overlay Stats */}
                   <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4 text-white text-xs sm:text-sm">
                     <span className="flex items-center gap-1">
                       <Heart className="w-4 h-4" />

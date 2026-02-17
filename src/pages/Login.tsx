@@ -2,9 +2,14 @@ import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Eye, EyeOff, Sparkles, Mail, Lock, ArrowRight, Loader } from "lucide-react";
 import heroBanner from "@/assets/hero-banner.jpg";
-import { signInWithEmailAndPassword } from "firebase/auth";
+import {
+  signInWithEmailAndPassword,
+  fetchSignInMethodsForEmail,
+  linkWithCredential,
+  EmailAuthProvider,
+  signInWithPopup
+} from "firebase/auth";
 import { useToast } from "@/hooks/use-toast";
-import { signInWithPopup } from "firebase/auth";
 import { auth, googleProvider } from "@/firebase";
 import { GoogleMobileModal } from "@/components/GoogleMobileModal";
 
@@ -18,6 +23,11 @@ const Login = () => {
   const [passwordError, setPasswordError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showMobileModal, setShowMobileModal] = useState(false);
+  // 🔥 STEP 1 — ADD NEW STATE
+  const [showOtpModal, setShowOtpModal] = useState(false);
+  const [otp, setOtp] = useState("");
+  // 🚨 ISSUE 2 — OTP Modal Loading State
+  const [otpLoading, setOtpLoading] = useState(false);
 
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -49,54 +59,41 @@ const Login = () => {
   setPasswordError(""); // reset previous error
 
   try {
-    // 🔹 Firebase login
-    await signInWithEmailAndPassword(auth, email, password);
+    const userCredential = await signInWithEmailAndPassword(auth, email, password);
 
-    // ✅ Case 1: Correct email & correct password
-    toast({
-      title: "✓ Login successful",
-      description: "Welcome back to kirnagram!",
-      duration: 2000,
+    // 🔥 Get fresh token
+    const token = await userCredential.user.getIdToken(true);
+
+    // 🔄 Sync user
+    await fetch("http://127.0.0.1:8000/2fa/sync-user", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
     });
 
-    setTimeout(() => {
-      navigate("/home");
-    }, 500);
+    // 🔐 Check 2FA
+    const res = await fetch("http://127.0.0.1:8000/2fa/login-request", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    const data = await res.json();
+    console.log("2FA Response:", data);
+
+    if (data.two_factor_required === true) {
+      setShowOtpModal(true);
+      setLoading(false);
+      return;
+    }
+
+    // ✅ If 2FA not enabled
+    navigate("/home");
 
   } catch (err: any) {
-
-    // 🔴 Case 2: Correct email but WRONG password
-    if (
-      err.code === "auth/wrong-password" ||
-      err.code === "auth/invalid-credential" ||
-      err.code === "auth/invalid-login-credentials"
-    ) {
-      setEmail("");
-      setPassword("");
-      setPasswordError("");
-      toast({
-        title: "❌ Wrong password",
-        description: "The password you entered is incorrect. Please try again.",
-        variant: "destructive",
-        duration: 3000,
-      });
-      return; // stop here
-    }
-
-    // 🔴 Case 3: Email NOT registered
-    if (err.code === "auth/user-not-found") {
-      setEmail("");
-      setPassword("");
-      setPasswordError("");
-
-      toast({
-        title: "❌ Email not registered",
-        description: "This email is not registered. Create a new account instead.",
-        variant: "destructive",
-        duration: 3000,
-      });
-    }
-
+    console.error(err);
   } finally {
     setLoading(false);
   }
@@ -137,14 +134,20 @@ const handleGoogleLogin = async () => {
       });
       setShowMobileModal(true);
     } else {
-      toast({
-        title: "✓ Login successful",
-        description: "Welcome back to kirnagram!",
-        duration: 2000,
+      // 🔥 STEP 3 — 2FA check for Google login
+      const check2fa = await fetch("http://127.0.0.1:8000/2fa/login-request", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       });
-      setTimeout(() => {
-        navigate("/home");
-      }, 500);
+      const data2fa = await check2fa.json();
+      if (data2fa.two_factor_required) {
+        setShowOtpModal(true);
+        setLoading(false);
+        return;
+      }
+      navigate("/home");
     }
 
   } catch (error: any) {
@@ -171,6 +174,84 @@ const handleGoogleLogin = async () => {
         onClose={() => setShowMobileModal(false)}
         onSuccess={() => navigate("/")}
       />
+
+      {/* 🔥 STEP 4 — OTP MODAL UI */}
+      {showOtpModal && (
+        <div
+          className="fixed inset-0 bg-black/60 flex items-center justify-center z-50"
+          onClick={() => setShowOtpModal(false)}
+        >
+          <div
+            className="bg-white p-6 rounded-xl w-80 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-lg font-semibold mb-4 text-center">
+              Enter Email OTP
+            </h2>
+
+            <input
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              maxLength={6}
+              value={otp}
+              onChange={(e) => {
+                const value = e.target.value.replace(/\D/g, "");
+                setOtp(value);
+              }}
+              placeholder="Enter 6-digit OTP"
+              className="w-full border p-2 rounded mb-4 text-center tracking-widest"
+            />
+
+            <button
+              disabled={otpLoading}
+              onClick={async () => {
+                setOtpLoading(true);
+                // OTP length validation
+                if (otp.length !== 6) {
+                  toast({
+                    title: "Invalid OTP",
+                    description: "Please enter valid 6-digit OTP",
+                    variant: "destructive",
+                  });
+                  setOtpLoading(false);
+                  return;
+                }
+                // Always get a fresh token for OTP verify
+                const token = await auth.currentUser?.getIdToken(true);
+
+                const verify = await fetch(
+                  "http://127.0.0.1:8000/2fa/login-verify",
+                  {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                      Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({ otp }),
+                  }
+                );
+
+                if (verify.ok) {
+                  setShowOtpModal(false);
+                  setOtp("");
+                  navigate("/home");
+                } else {
+                  toast({
+                    title: "Invalid OTP",
+                    description: "The OTP is incorrect or expired.",
+                    variant: "destructive",
+                  });
+                }
+                setOtpLoading(false);
+              }}
+              className="bg-primary text-white w-full py-2 rounded"
+            >
+              {otpLoading ? "Verifying..." : "Verify OTP"}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Left Panel - Form */}
       <div className="flex-1 flex flex-col justify-center px-6 py-12 lg:px-20 bg-background relative overflow-x-hidden">
