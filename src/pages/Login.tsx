@@ -80,20 +80,45 @@ const Login = () => {
       },
     });
 
-    const data = await res.json();
+    let data;
+    try {
+      data = await res.json();
+    } catch (jsonErr) {
+      toast({
+        title: "Login Error",
+        description: "Unexpected server response. Please try again.",
+        variant: "destructive",
+      });
+      setLoading(false);
+      return;
+    }
     console.log("2FA Response:", data);
 
-    if (data.two_factor_required === true) {
+    if (data && data.two_factor_required === true) {
       setShowOtpModal(true);
+      setLoading(false);
+      return;
+    } else if (data && data.two_factor_required === false) {
+      navigate("/home");
+      setLoading(false);
+      return;
+    } else {
+      toast({
+        title: "Login Error",
+        description: "Unexpected server response. Please try again.",
+        variant: "destructive",
+      });
       setLoading(false);
       return;
     }
 
-    // ✅ If 2FA not enabled
-    navigate("/home");
-
   } catch (err: any) {
     console.error(err);
+    toast({
+      title: "Login Error",
+      description: err?.message || "An error occurred during login.",
+      variant: "destructive",
+    });
   } finally {
     setLoading(false);
   }
