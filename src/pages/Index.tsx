@@ -354,8 +354,7 @@ const Index = () => {
   return (
     <MainLayout>
       <div className="max-w-2xl mx-auto space-y-6 overflow-x-hidden overflow-y-hidden scrollbar-hide">
-        {/* Feed Tabs */}
-        <FeedTabs />
+       
 
         {/* Hero Banner */}
         <HeroBanner />
@@ -421,6 +420,7 @@ const Index = () => {
                           navigate(`/remix/${post._id}`);
                         }
                       }}
+                      onAuthorClick={() => openProfile(post.user_id)}
                       // Pass global mute state to FeedPost (if it supports it)
                     />
                   </div>

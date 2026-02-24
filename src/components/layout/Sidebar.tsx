@@ -4,6 +4,7 @@ import { Home, Compass, Plus, Sparkles, User, Menu, X, UserPlus } from "lucide-r
 import { cn } from "@/lib/utils";
 import { auth } from "@/firebase";
 import avatar2 from "@/assets/avatar-2.jpg";
+import kirnagramLogo from "@/assets/kirnagramlogo.png";
 import {
   LogOut,
 } from "lucide-react";
@@ -20,15 +21,9 @@ const navItems: NavItem[] = [
   { icon: Compass, label: "Discover", path: "/explore" },
   { icon: Plus, label: "Add Post", path: "/create", isCreate: true },
   { icon: Sparkles, label: "AI Creator", path: "/ai-creator" },
+  { icon: UserPlus, label: "Become a Publisher", path: "/become-publisher", isPublisher: true },
   { icon: User, label: "Profile", path: "/profile" },
 ];
-
-const publisherItem: NavItem = { 
-  icon: UserPlus, 
-  label: "Become a Publisher", 
-  path: "/become-publisher", 
-  isPublisher: true 
-};
 
 
 interface SidebarProps {
@@ -39,128 +34,95 @@ export function Sidebar({ fromProfile }: SidebarProps = {}) {
   const location = useLocation();
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
-  const [myStories, setMyStories] = useState<any[]>([]);
 
-  // Fetch my stories to determine if story ring should show
-  useEffect(() => {
-    const fetchMyStories = async () => {
-      try {
-        const user = auth.currentUser;
-        if (!user) return;
-
-        const token = await user.getIdToken();
-        const response = await fetch("http://localhost:8000/stories/my-stories", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-
-        if (response.ok) {
-          const stories = await response.json();
-          setMyStories(Array.isArray(stories) ? stories : []);
-        }
-      } catch (error) {
-        console.error("Failed to fetch stories:", error);
-      }
-    };
-
-    fetchMyStories();
-
-    // Refresh stories when location changes (e.g., after uploading a story)
-    const unsubscribe = auth.onAuthStateChanged((user) => {
-      if (user) fetchMyStories();
-    });
-
-    return () => unsubscribe();
-  }, [location]);
-
-  // Highlight parent menu for subpages (e.g., /ai-creator/earnings highlights AI Creator)
+  // Helper for active state
   const isActive = (path: string) => {
     if (path === "/profile") {
-      // Only active if on /profile or posts from profile
       return location.pathname === "/profile" || (fromProfile && location.pathname === "/posts");
     }
     if (path === "/") {
-      // Feeds is active for / or /posts unless fromProfile is true
+      // Home is active for /, /home, or /posts unless fromProfile is true
       if (fromProfile && location.pathname === "/posts") return false;
-      return location.pathname === "/" || location.pathname === "/posts";
+      return (
+        location.pathname === "/" ||
+        location.pathname === "/home" ||
+        location.pathname === "/posts"
+      );
     }
     return location.pathname === path || location.pathname.startsWith(path + "/");
   };
 
+  // Instagram-like sidebar layout
   return (
-    <>
+    <aside
+      className={cn(
+        "hidden lg:flex fixed top-0 left-0 h-screen w-64 z-40 flex-col justify-between",
+        // Light mode: no border, bg-white; dark mode: border-white/10 and bg-transparent
+        "bg-white text-zinc-800 dark:bg-transparent dark:border-white/10 dark:text-zinc-200"
+      )}
+      style={{ background: undefined }}
+    >
+      {/* Top: Logo */}
+      <div className="flex flex-col items-start gap-2 p-6 pb-2 dark:border-b dark:border-zinc-800">
+        <Link to="/" className="flex items-center gap-3" onClick={() => setIsOpen(false)}>
+          <img
+            src={kirnagramLogo}
+            alt="Kirnagram Logo"
+            className="w-8 h-8 object-contain"
+            style={{ filter: 'drop-shadow(0 0 0.5px #fff) drop-shadow(0 0 0.5px #000)' }}
+          />
+          <span className="text-2xl font-bold tracking-tight text-zinc-800 dark:text-white">kirnagram</span>
+        </Link>
+      </div>
 
-      {/* Sidebar - Hidden on mobile, visible on desktop */}
-      <aside
-        className="hidden lg:flex fixed top-0 left-0 h-screen w-64 bg-card/80 backdrop-blur-xl border-r border-border z-40 flex-col"
-      >
-        {/* Logo */}
-        <div className="p-6 border-b border-border shrink-0">
-          <Link to="/" className="flex items-center gap-3" onClick={() => setIsOpen(false)}>
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shadow-lg shadow-primary/20">
-              <Sparkles className="w-5 h-5 text-primary-foreground" />
-            </div>
-            <span className="text-xl font-display font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
-              kirnagram
-            </span>
+      {/* Middle: Navigation links (centered vertically) */}
+      <nav className="flex-1 flex flex-col justify-center gap-1">
+        {navItems.map((item) => (
+          <Link
+            key={item.path}
+            to={item.path}
+            onClick={() => setIsOpen(false)}
+            className={cn(
+              "flex items-center gap-4 px-6 py-3 rounded-xl transition-all duration-150 font-medium text-base relative group",
+              isActive(item.path)
+                ? "bg-orange-100 text-orange-600 font-bold dark:bg-orange-900/40 dark:text-orange-500"
+                : "text-zinc-700 hover:bg-orange-50 hover:text-orange-600 dark:text-zinc-200 dark:hover:bg-orange-900/30 dark:hover:text-orange-400"
+            )}
+            style={{ fontWeight: isActive(item.path) ? 700 : 500 }}
+          >
+            {/* Orange left outline for active/hover */}
+            <span
+              className={cn(
+                "absolute left-0 top-2 bottom-2 w-1 rounded-r-full transition-all",
+                isActive(item.path)
+                  ? "bg-orange-500"
+                  : "group-hover:bg-orange-400 group-hover:opacity-80 bg-transparent"
+              )}
+            />
+            <item.icon className={cn(
+              "w-6 h-6 z-10",
+              isActive(item.path)
+                ? "text-orange-600 dark:text-orange-500"
+                : "text-zinc-400 group-hover:text-orange-600 dark:group-hover:text-orange-400"
+            )}/>
+            <span className="z-10">{item.label === "Feeds" ? "Home" : item.label === "Add Post" ? "Create" : item.label}</span>
           </Link>
-        </div>
+        ))}
+      </nav>
 
-        {/* Navigation */}
-        <nav className="flex-1 p-4 space-y-2 overflow-y-auto min-h-0">
-          {navItems.map((item) => (
-            <Link
-              key={item.path}
-              to={item.path}
-              onClick={() => setIsOpen(false)}
-              className={cn(
-                "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 group relative",
-                item.isCreate
-                  ? "bg-gradient-to-r from-primary to-primary/80 text-primary-foreground hover:shadow-lg hover:shadow-primary/30"
-                  : isActive(item.path)
-                  ? "bg-primary/10 text-primary"
-                  : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
-              )}
-            >
-              {!item.isCreate && isActive(item.path) && (
-                <span className="absolute left-0 w-1 h-8 bg-primary rounded-r-full" />
-              )}
-              <item.icon className="w-5 h-5" />
-              <span className="font-medium">{item.label}</span>
-            </Link>
-          ))}
-          
-          {/* Become a Publisher - Desktop Only */}
-          <div className="pt-4 mt-4 border-t border-border">
-            <Link
-              to={publisherItem.path}
-              onClick={() => setIsOpen(false)}
-              className={cn(
-                "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 group relative",
-                isActive(publisherItem.path)
-                  ? "bg-primary/10 text-primary"
-                  : "text-muted-foreground hover:bg-muted/50 hover:text-foreground border border-dashed border-primary/30 hover:border-primary/60"
-              )}
-            >
-              <publisherItem.icon className="w-5 h-5" />
-              <span className="font-medium">{publisherItem.label}</span>
-            </Link>
-          </div>
-        </nav>
-
-      
-        <div className="p-4 border-t border-border shrink-0 flex items-center">
-          <button
-            onClick={async () => {
-              await auth.signOut();
-                navigate("/login");
-              }}
-              className="flex items-center gap-3 px-4 py-2 rounded-xl text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all duration-300 w-full"
-              >
-              <LogOut className="w-5 h-5" />
-            <span className="font-medium">Log out</span>
-          </button>
-        </div>
-      </aside>
-    </>
+      {/* Bottom: Only Logout */}
+      <div className="flex flex-col gap-1 pb-6 dark:border-t dark:border-white/10">
+        <button
+          onClick={async () => {
+            await auth.signOut();
+            navigate("/login");
+          }}
+          className="flex items-center gap-4 px-6 py-3 rounded-lg text-zinc-700 hover:bg-orange-50 hover:text-orange-600 dark:text-zinc-200 dark:hover:bg-orange-50/80 dark:hover:text-orange-600 transition-colors duration-150 font-medium text-base w-full"
+        >
+          <LogOut className="w-6 h-6 text-zinc-400 group-hover:text-orange-600 dark:text-zinc-400 dark:group-hover:text-orange-600" />
+          <span>Log out</span>
+        </button>
+      </div>
+    </aside>
   );
 }

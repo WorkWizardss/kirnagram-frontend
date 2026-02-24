@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Eye, EyeOff, Sparkles, Mail, Lock, User, ArrowRight, Phone, Loader } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, User, ArrowRight, Phone, Loader } from "lucide-react";
+import kirnagramLogo from "@/assets/kirnagramlogo.png";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { useToast } from "@/hooks/use-toast";
 import { signInWithPopup } from "firebase/auth";
@@ -237,9 +238,12 @@ const handleGoogleLogin = async () => {
         <div className="relative max-w-md mx-auto w-full">
           {/* Logo */}
           <Link to="/" className="flex items-center gap-3 mb-10">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-secondary to-secondary/70 flex items-center justify-center shadow-lg shadow-secondary/20">
-              <Sparkles className="w-6 h-6 text-secondary-foreground" />
-            </div>
+            <img
+              src={kirnagramLogo}
+              alt="Kirnagram Logo"
+              className="w-12 h-12 object-contain"
+              style={{ filter: 'drop-shadow(0 0 0.5px #fff) drop-shadow(0 0 0.5px #000)' }}
+            />
             <span className="text-2xl font-display font-bold bg-gradient-to-r from-secondary to-secondary/70 bg-clip-text text-transparent">
               kirnagram
             </span>

@@ -139,7 +139,7 @@ const Settings = () => {
             ? t('settings.privateAccountOn')
             : t('settings.privateAccountOff'),
         },
-        { icon: Eye, label: t('settings.activityStatus'), link: "#" },
+        // { icon: Eye, label: t('settings.activityStatus'), link: "#" },
         { icon: Shield, label: t('settings.blockedAccounts'), link: "#" },
       ],
     },
@@ -165,14 +165,14 @@ const Settings = () => {
     {
       title: t('settings.security'),
       items: [
-        { icon: Shield, label: t('settings.securitySettings'), link: "#" },
-        { icon: Smartphone, label: t('settings.activeSessions'), link: "#" },
+        // { icon: Shield, label: t('settings.securitySettings'), link: "#" },
+        // { icon: Smartphone, label: t('settings.activeSessions'), link: "#" },
       ],
     },
     {
       title: t('settings.support'),
       items: [
-        { icon: HelpCircle, label: t('settings.helpCenter'), link: "#" },
+        { icon: HelpCircle, label: t('settings.helpCenter'), link: "/HelpCenter" },
         { icon: FileText, label: t('settings.termsOfService'), link: "/terms" },
         { icon: FileText, label: t('settings.privacyPolicy'), link: "/privacy" },
       ],

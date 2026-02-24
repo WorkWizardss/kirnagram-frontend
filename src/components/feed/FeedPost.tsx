@@ -1,4 +1,7 @@
 import { useState, useRef } from "react";
+import maleIcon from "@/assets/maleicon.png";
+import femaleIcon from "@/assets/femaleicon.png";
+import profileIcon from "@/assets/profileicon.png";
 import { MoreHorizontal, Heart, MessageCircle, Eye, BadgeCheck, TrendingUp, Sparkles, Share2, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useEffect } from "react";
@@ -100,11 +103,54 @@ useEffect(() => {
   return () => observer.disconnect();
 }, []);
 
+// Helper to get user avatar for comments
+function getUserAvatar(user?: { image_name?: string; user_image?: string; gender?: string }) {
+  const url = user?.image_name || user?.user_image;
+  if (url && typeof url === "string" && url.startsWith("http") && !url.includes("default") && !url.includes("placeholder") && !url.startsWith("blob:")) {
+    return url;
+  }
+  if (user?.gender === "male") return maleIcon;
+  if (user?.gender === "female") return femaleIcon;
+  return profileIcon;
+}
+
+
+  // Default Add to Story handler
+  async function handleAddToStory() {
+    try {
+      // Show loading (optional: replace with toast/modal)
+      // Prepare form data
+      const formData = new FormData();
+      formData.append("media_type", mediaType || "image");
+      formData.append("duration", mediaType === "video" ? "15" : "7");
+      formData.append("file", await fetch(image).then(r => r.blob()), "story-media" + (mediaType === "video" ? ".mp4" : ".jpg"));
+      // TODO: Add auth token logic here
+      const token = localStorage.getItem("token");
+      if (!token) {
+        alert("You must be logged in to add a story.");
+        return;
+      }
+      const res = await fetch("/api/stories/create", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`
+        },
+        body: formData
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || "Failed to add story");
+      }
+      alert("Story added!");
+    } catch (e: any) {
+      alert(e.message || "Failed to add story");
+    }
+  }
 
   return (
     <div className="w-full flex justify-center">
       <div className="w-full max-w-[600px] transition-all duration-300 hover:scale-[1.01]">
-        <div className="bg-gradient-to-b from-zinc-900 to-black rounded-2xl overflow-hidden shadow-lg border border-zinc-800">
+        <div className="rounded-2xl overflow-hidden shadow-lg border bg-white border-zinc-200 text-zinc-800 dark:bg-gradient-to-b dark:from-zinc-900 dark:to-black dark:border-zinc-800 dark:text-white">
         {/* Author Header */}
         <div className="flex items-center justify-between p-4">
           <button className="flex items-center gap-3 text-left" onClick={onAuthorClick}>
@@ -117,15 +163,15 @@ useEffect(() => {
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-semibold text-sm">{author.name}</span>
+                <span className="font-semibold text-sm text-zinc-800 dark:text-white">{author.name}</span>
                 {author.isVerified && (
                   <BadgeCheck className="w-4 h-4 text-primary fill-primary/20" />
                 )}
               </div>
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <div className="flex items-center gap-2 text-xs text-zinc-500 dark:text-muted-foreground">
                 {author.isPro && <span className="badge-pro text-[10px]">PRO</span>}
                 {author.earnings && (
-                  <span className="flex items-center gap-1 text-green-400">
+                  <span className="flex items-center gap-1 text-green-600 dark:text-green-400">
                     <TrendingUp className="w-3 h-3" />
                     {author.earnings}
                   </span>
@@ -135,16 +181,16 @@ useEffect(() => {
           </button>
           <div className="relative">
             <button
-              className="p-2 hover:bg-muted rounded-lg transition-colors"
+              className="p-2 hover:bg-zinc-100 dark:hover:bg-muted rounded-lg transition-colors"
               onClick={() => setMenuOpen((prev) => !prev)}
               aria-label="Post options"
             >
-              <MoreHorizontal className="w-5 h-5 text-muted-foreground" />
+              <MoreHorizontal className="w-5 h-5 text-zinc-500 dark:text-muted-foreground" />
             </button>
             {menuOpen && (
-              <div className="absolute right-0 top-10 w-44 rounded-xl border border-border bg-background shadow-lg overflow-hidden z-10">
+              <div className="absolute right-0 top-10 w-44 rounded-xl border border-zinc-200 dark:border-border bg-white dark:bg-background shadow-lg overflow-hidden z-10">
                 <button
-                  className="w-full px-4 py-2 text-left text-sm hover:bg-muted flex items-center gap-2"
+                  className="w-full px-4 py-2 text-left text-sm hover:bg-zinc-100 dark:hover:bg-muted flex items-center gap-2"
                   onClick={() => {
                     setMenuOpen(false);
                     onShare?.();
@@ -154,10 +200,14 @@ useEffect(() => {
                   Share
                 </button>
                 <button
-                  className="w-full px-4 py-2 text-left text-sm hover:bg-muted flex items-center gap-2"
-                  onClick={() => {
+                  className="w-full px-4 py-2 text-left text-sm hover:bg-zinc-100 dark:hover:bg-muted flex items-center gap-2"
+                  onClick={async () => {
                     setMenuOpen(false);
-                    onAddToStory?.();
+                    if (onAddToStory) {
+                      onAddToStory();
+                    } else {
+                      await handleAddToStory();
+                    }
                   }}
                 >
                   <Plus className="w-4 h-4" />
@@ -245,7 +295,10 @@ useEffect(() => {
         {/* Actions */}
         <div className="px-4 pt-3 pb-4 flex items-center gap-6 text-sm">
           <button
-            className={`flex items-center gap-1.5 min-w-[56px] ${isLiked ? "text-red-500" : "text-foreground"}`}
+            className={cn(
+              "flex items-center gap-1.5 min-w-[56px]",
+              isLiked ? "text-red-500" : "text-zinc-700 dark:text-foreground"
+            )}
             onClick={onLike}
           >
             <Heart className="w-5 h-5" fill={isLiked ? "currentColor" : "none"} />
@@ -259,14 +312,14 @@ useEffect(() => {
             </span>
           </button>
           <button
-            className="flex items-center gap-1.5 min-w-[56px] text-foreground"
+            className="flex items-center gap-1.5 min-w-[56px] text-zinc-700 dark:text-foreground"
             onClick={onOpenComments}
           >
             <MessageCircle className="w-5 h-5" />
             <span>{comments}</span>
           </button>
           <button
-            className="flex items-center gap-1.5 min-w-[56px] text-foreground"
+            className="flex items-center gap-1.5 min-w-[56px] text-zinc-700 dark:text-foreground"
             onClick={onOpenViews}
           >
             <Eye className="w-5 h-5" />
@@ -275,12 +328,12 @@ useEffect(() => {
         </div>
         {caption && (
           <div className="px-4 pb-4">
-            <p className={cn("text-sm text-muted-foreground", !captionExpanded && "line-clamp-2")}>
+            <p className={cn("text-sm text-zinc-700 dark:text-muted-foreground", !captionExpanded && "line-clamp-2")}> 
               {caption}
             </p>
             {caption.length > 80 && (
               <button
-                className="mt-1 text-xs text-primary hover:underline"
+                className="mt-1 text-xs text-orange-600 hover:underline dark:text-primary"
                 onClick={() => setCaptionExpanded((prev) => !prev)}
               >
                 {captionExpanded ? "less" : "more"}
@@ -293,5 +346,4 @@ useEffect(() => {
     </div>
   );
 }
-
 export default FeedPost;

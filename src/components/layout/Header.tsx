@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { auth } from "@/firebase";
 import { useNotificationStore } from "@/store/notificationStore";
 import avatar2 from "@/assets/avatar-2.jpg";
+import kirnagramLogo from "@/assets/kirnagramlogo.png";
 import { fetchCreditsSummary } from "@/lib/creditsApi";
 
 const API_BASE = "http://127.0.0.1:8000";
@@ -88,11 +89,15 @@ export function Header() {
   };
 
   return (
-    <header className="sticky top-0 z-50 glass-header w-full">
+    <header className="glass-header w-full">
       <div className="flex items-center justify-between px-4 py-3 lg:px-6 w-full">
         {/* Logo - Only one visible at a time */}
         <Link to="/" className="flex items-center gap-2 shrink-0">
-          
+          <img
+            src={kirnagramLogo}
+            alt="Kirnagram Logo"
+            className="block lg:hidden w-8 h-8 object-contain"
+          />
           <span className="font-display font-bold text-base lg:text-lg bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
             <span className="block lg:hidden">kirnagram</span>
           </span>
@@ -110,9 +115,9 @@ export function Header() {
             aria-label="Toggle theme"
           >
             {theme === "dark" ? (
-              <Sun className="w-5 h-5 text-muted-foreground" />
+              <Sun className="w-5 h-5 icon-outline" style={{ color: '#fff' }} />
             ) : (
-              <Moon className="w-5 h-5 text-muted-foreground" />
+              <Moon className="w-5 h-5 icon-outline" style={{ color: '#111' }} />
             )}
           </button>
           
@@ -122,7 +127,7 @@ export function Header() {
             className="relative p-2 hover:bg-muted rounded-lg transition-colors group flex items-center justify-center"
             title="View notifications"
           >
-            <Bell className="w-5 h-5 text-muted-foreground group-hover:text-primary" />
+            <Bell className="w-5 h-5 icon-outline" style={{ color: theme === 'dark' ? '#fff' : '#111' }} />
             {unreadCount > 0 && (
               <div className="absolute -top-1 -right-1 bg-destructive rounded-full w-5 h-5 flex items-center justify-center">
                 <span className="text-white text-xs font-bold">{unreadCount > 99 ? "99+" : unreadCount}</span>

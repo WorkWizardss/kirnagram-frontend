@@ -135,10 +135,19 @@ const StoryUpload: React.FC = () => {
       // Check video duration
       const video = document.createElement('video');
       video.onloadedmetadata = () => {
-        if (video.duration > 30) {
+        if (video.duration >= 120) {
           toast({
             title: "Video too long",
-            description: "Video must be 30 seconds or less",
+            description: "Video must be less than 2 minutes (120 seconds).",
+            variant: "destructive",
+          });
+          e.target.value = '';
+          return;
+        }
+        if (video.duration > 75) {
+          toast({
+            title: "Video too long",
+            description: "Video must be 1 minute 15 seconds (75 seconds) or less.",
             variant: "destructive",
           });
           e.target.value = '';
@@ -147,7 +156,7 @@ const StoryUpload: React.FC = () => {
         // Video is valid, proceed with upload
         const preview = URL.createObjectURL(file);
         setStory({ file, preview, type: 'video' });
-        setTrimEnd(Math.min(video.duration, 30));
+        setTrimEnd(Math.min(video.duration, 75));
         setStep('edit');
       };
       video.onerror = () => {

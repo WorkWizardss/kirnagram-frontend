@@ -91,13 +91,10 @@ const SuggestedUsers = () => {
 
   return (
     <div className="mt-6">
-      <div className="flex justify-between items-center mb-4">
+      <div className="flex items-center mb-4">
         <h3 className="text-base font-semibold text-foreground">
           Suggested for you
         </h3>
-        <button className="text-sm text-blue-500 hover:underline">
-          See all
-        </button>
       </div>
 
       <div className="flex gap-4 overflow-x-auto scrollbar-hide pb-2">

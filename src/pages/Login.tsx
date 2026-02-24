@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Eye, EyeOff, Sparkles, Mail, Lock, ArrowRight, Loader } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, ArrowRight, Loader } from "lucide-react";
+import kirnagramLogo from "@/assets/kirnagramlogo.png";
 import heroBanner from "@/assets/hero-banner.jpg";
 import {
   signInWithEmailAndPassword,
@@ -306,9 +307,12 @@ const handleGoogleLogin = async () => {
         <div className="relative max-w-md mx-auto w-full">
           {/* Logo */}
           <Link to="/" className="flex items-center gap-3 mb-10">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shadow-lg shadow-primary/20">
-              <Sparkles className="w-6 h-6 text-primary-foreground" />
-            </div>
+            <img
+              src={kirnagramLogo}
+              alt="Kirnagram Logo"
+              className="w-12 h-12 object-contain"
+              style={{ filter: 'drop-shadow(0 0 0.5px #fff) drop-shadow(0 0 0.5px #000)' }}
+            />
             <span className="text-2xl font-display font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
               kirnagram
             </span>
