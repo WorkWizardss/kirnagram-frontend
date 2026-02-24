@@ -180,7 +180,7 @@ const Settings = () => {
   ];
 
   return (
-    <MainLayout showRightSidebar={false}>
+    <MainLayout showRightSidebar={true}>
       <div className="max-w-2xl mx-auto pb-20 md:pb-0 overflow-x-hidden">
         <div className="flex items-center gap-3 mb-4 mt-4 ml-2">
           <button

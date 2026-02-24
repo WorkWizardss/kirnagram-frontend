@@ -65,7 +65,7 @@ const BecomePublisher = () => {
 
   if (isSubmitted) {
     return (
-      <MainLayout showRightSidebar={false}>
+      <MainLayout showRightSidebar={true}>
         <div className="max-w-2xl mx-auto pb-24 md:pb-8 px-4">
           <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
             <div className="w-20 h-20 rounded-full bg-primary/20 flex items-center justify-center mb-6 animate-pulse">
@@ -87,7 +87,7 @@ const BecomePublisher = () => {
   }
 
   return (
-    <MainLayout showRightSidebar={false}>
+    <MainLayout showRightSidebar={true}>
       <div className="max-w-3xl mx-auto pb-24 md:pb-8 px-4 overflow-x-hidden">
         {/* Header */}
         <div className="text-center mb-8">

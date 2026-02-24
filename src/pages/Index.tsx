@@ -353,7 +353,7 @@ const Index = () => {
 
   return (
     <MainLayout>
-      <div className="max-w-2xl mx-auto space-y-6 overflow-x-hidden">
+      <div className="max-w-2xl mx-auto space-y-6 overflow-x-hidden overflow-y-hidden scrollbar-hide">
         {/* Feed Tabs */}
         <FeedTabs />
 

@@ -713,7 +713,7 @@ const EditProfile = () => {
 
   if (loading) {
     return (
-      <MainLayout showRightSidebar={false}>
+      <MainLayout showRightSidebar={true}>
         <div className="flex justify-center items-center h-96">
           Loading profile...
         </div>
@@ -722,7 +722,7 @@ const EditProfile = () => {
   }
 
   return (
-    <MainLayout showRightSidebar={false}>
+    <MainLayout showRightSidebar={true}>
       <div className="max-w-2xl mx-auto overflow-x-hidden">
        
           <div className="flex items-center gap-3 mb-4 mt-4 ml-2">
@@ -1067,7 +1067,7 @@ const EditProfile = () => {
         )}
 
         {/* FORM */}
-        <form onSubmit={handleSubmit} className="px-2 md:px-4 py-6 space-y-5">
+        <form id="edit-profile-form" onSubmit={handleSubmit} className="px-2 md:px-4 py-6 space-y-5">
           {/* NAME (READ ONLY) */}
           <Input
             label="Full Name"

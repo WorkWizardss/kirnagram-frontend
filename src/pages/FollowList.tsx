@@ -249,7 +249,7 @@ const FollowList = () => {
   };
 
   return (
-    <MainLayout showRightSidebar={false}>
+    <MainLayout showRightSidebar={true}>
       <div className="max-w-2xl mx-auto pb-20 md:pb-0 overflow-x-hidden">
         {/* Header */}
         <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm border-b border-border">

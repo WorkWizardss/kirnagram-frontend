@@ -37,6 +37,7 @@ import Remix from "./pages/Remix";
 import RemixViewer from "./pages/RemixViewer";
 import ChangePassword from "./pages/ChangePassword";
 import { VideoSoundProvider } from "@/context/VideoSoundContext";
+import "./glass.css";
 
 const queryClient = new QueryClient();
 

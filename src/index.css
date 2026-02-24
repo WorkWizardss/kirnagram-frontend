@@ -1,3 +1,12 @@
+/* Hide scrollbar for Chrome, Safari and Opera */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+/* Hide scrollbar for IE, Edge and Firefox */
+.scrollbar-hide {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;     /* Firefox */
+}
 @keyframes scaleFade {
   0% { transform: scale(0.5); opacity: 0; }
   30% { transform: scale(1.2); opacity: 1; }

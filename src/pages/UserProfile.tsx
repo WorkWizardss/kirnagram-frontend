@@ -216,7 +216,7 @@ const UserProfile = () => {
   // Show loading state
   if (loading) {
     return (
-      <MainLayout showRightSidebar={false}>
+      <MainLayout showRightSidebar={true}>
         <div className="max-w-4xl mx-auto pb-20 md:pb-0 flex items-center justify-center h-96">
           <p className="text-muted-foreground">Loading profile...</p>
         </div>
@@ -227,7 +227,7 @@ const UserProfile = () => {
   // Handle missing profile
   if (!profile) {
     return (
-      <MainLayout showRightSidebar={false}>
+      <MainLayout showRightSidebar={true}>
         <div className="max-w-4xl mx-auto pb-20 md:pb-0 flex items-center justify-center h-96">
           <p className="text-muted-foreground">User not found</p>
         </div>
@@ -266,7 +266,7 @@ const UserProfile = () => {
     : heroBanner;
 
   return (
-    <MainLayout showRightSidebar={false}>
+    <MainLayout showRightSidebar={true}>
       <div className="max-w-4xl mx-auto pb-20 md:pb-0 overflow-x-hidden">
         {/* Cover Photo with Back Button */}
         <div className="relative h-32 sm:h-48 md:h-64 rounded-none sm:rounded-2xl overflow-hidden">

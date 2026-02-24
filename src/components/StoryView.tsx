@@ -535,52 +535,45 @@ const StoryView: React.FC = () => {
       </div>
     );
   }
+return (
+  <div className="h-screen bg-black flex items-center justify-center relative overflow-hidden">
 
-  return (
-    <div className="h-screen bg-black flex flex-col relative">
+    {/* Desktop Blur Background */}
+    <div
+      className="hidden lg:block absolute inset-0 bg-cover bg-center blur-3xl scale-110 opacity-30"
+      style={{ backgroundImage: `url(${currentStory.media_url})` }}
+    />
+
+    {/* Story Card */}
+    <div className="relative w-full h-full lg:max-w-md lg:aspect-[9/16] bg-black lg:rounded-2xl overflow-hidden shadow-2xl">
+
       {/* Progress Bars */}
       <div className="flex gap-1 px-2 pt-2 pb-1 absolute top-0 left-0 right-0 z-40">
         {currentUser?.stories.map((_, idx) => (
-          <div
-            key={idx}
-            className="flex-1 h-1 bg-white/30 rounded-full overflow-hidden"
-          >
+          <div key={idx} className="flex-1 h-1 bg-white/30 rounded-full overflow-hidden">
             {idx < currentStoryIdx ? (
-              // Completed stories - fully filled
-              <div className="w-full h-full bg-white transition-all duration-200"></div>
+              <div className="w-full h-full bg-white"></div>
             ) : idx === currentStoryIdx ? (
-              // Current story - filling progressively
-              <div
-                ref={progressRef}
-                className="h-full bg-white transition-all"
-                style={{ width: '0%' }}
-              ></div>
+              <div ref={progressRef} className="h-full bg-white" style={{ width: '0%' }}></div>
             ) : (
-              // Upcoming stories - empty
               <div className="w-0 h-full bg-white"></div>
             )}
           </div>
         ))}
       </div>
 
-      {/* Header with User Info */}
+      {/* Header */}
       <div className="flex justify-between items-center px-4 py-3 absolute top-3 left-0 right-0 z-30 bg-gradient-to-b from-black/60 to-transparent">
-        <div 
-          className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition"
-          onClick={() => {
-            if (currentUser?.user_id) {
-              navigate(`/user/${currentUser.user_id}`);
-            }
-          }}
+        <div
+          className="flex items-center gap-3 cursor-pointer"
+          onClick={() => currentUser?.user_id && navigate(`/user/${currentUser.user_id}`)}
         >
           <img
             src={getProfileImage()}
             alt={currentUser?.username}
             className="w-10 h-10 rounded-full border-2 border-white"
           />
-          <div className="text-white">
-            <p className="font-semibold text-sm">{currentUser?.username}</p>
-          </div>
+          <p className="text-white font-semibold text-sm">{currentUser?.username}</p>
         </div>
 
         <button
@@ -592,126 +585,87 @@ const StoryView: React.FC = () => {
       </div>
 
       {/* Story Media */}
-      <div className="flex-1 flex items-center justify-center relative overflow-hidden">
-        {/* Left tap area - Previous story */}
-        <div
-          className="absolute left-0 top-0 bottom-0 w-1/3 z-10 cursor-pointer active:bg-white/5"
-          onClick={handlePrevStory}
-        />
+      <div className="w-full h-full relative flex items-center justify-center overflow-hidden">
 
-        {/* Right tap area - Next story */}
-        <div
-          className="absolute right-0 top-0 bottom-0 w-1/3 z-10 cursor-pointer active:bg-white/5"
-          onClick={handleNextStory}
-        />
+        {/* Tap Areas */}
+        <div className="absolute left-0 top-0 bottom-0 w-1/3 z-10 cursor-pointer" onClick={handlePrevStory} />
+        <div className="absolute right-0 top-0 bottom-0 w-1/3 z-10 cursor-pointer" onClick={handleNextStory} />
 
-        {/* Media content */}
-        <div className="w-full h-full relative">
-          {currentStory.media_type === 'image' ? (
-            <img
-              src={currentStory.media_url}
-              alt="Story"
-              className="w-full h-full object-contain"
-            />
-          ) : (
-            <video
-              ref={videoRef}
-              src={currentStory.media_url}
-              className="w-full h-full object-contain"
-              autoPlay
-              onEnded={handleNextStory}
-            />
-          )}
-          
-          {/* Text Overlay */}
-          {currentStory.text && (
-            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-white text-2xl md:text-3xl font-bold text-center px-4 text-shadow-lg pointer-events-none z-10"
-              style={{
-                textShadow: '2px 2px 4px rgba(0,0,0,0.8), -1px -1px 2px rgba(0,0,0,0.5)'
-              }}
-            >
-              {currentStory.text}
-            </div>
-          )}
-          
-          {/* Emoji Stickers Overlay */}
-          {currentStory.emoji_stickers && currentStory.emoji_stickers.length > 0 && (
-            <>
-              {currentStory.emoji_stickers.map((sticker, idx) => (
-                <div
-                  key={idx}
-                  className="absolute text-4xl pointer-events-none z-10"
-                  style={{
-                    left: `${sticker.x}%`,
-                    top: `${sticker.y}%`,
-                    transform: 'translate(-50%, -50%)'
-                  }}
-                >
-                  {sticker.emoji}
-                </div>
-              ))}
-            </>
-          )}
-        </div>
-
-        {/* Navigation Arrow Hints (optional) */}
-        {(currentStoryIdx > 0 || currentUserIdx > 0) && (
-          <button
-            className="absolute left-4 top-1/2 transform -translate-y-1/2 text-white/70 hover:text-white transition z-20 opacity-0 hover:opacity-100"
-            onClick={handlePrevStory}
-          >
-            <ChevronLeft size={36} />
-          </button>
+        {currentStory.media_type === 'image' ? (
+          <img
+            src={currentStory.media_url}
+            alt="Story"
+            className="w-full h-full object-contain"
+          />
+        ) : (
+          <video
+            ref={videoRef}
+            src={currentStory.media_url}
+            className="w-full h-full object-contain"
+            autoPlay
+            onEnded={handleNextStory}
+          />
         )}
 
-        {(currentStoryIdx < currentUser.stories.length - 1 || currentUserIdx < storyUsers.length - 1) && (
-          <button
-            className="absolute right-4 top-1/2 transform -translate-y-1/2 text-white/70 hover:text-white transition z-20 opacity-0 hover:opacity-100"
-            onClick={handleNextStory}
+        {/* Text Overlay */}
+        {currentStory.text && (
+          <div
+            className="absolute inset-0 flex items-center justify-center text-white text-2xl md:text-3xl font-bold text-center px-4 z-20"
+            style={{
+              textShadow:
+                '2px 2px 4px rgba(0,0,0,0.8), -1px -1px 2px rgba(0,0,0,0.5)',
+            }}
           >
-            <ChevronRight size={36} />
-          </button>
+            {currentStory.text}
+          </div>
         )}
+
+        {/* Emoji Stickers */}
+        {currentStory.emoji_stickers?.map((sticker, idx) => (
+          <div
+            key={idx}
+            className="absolute text-4xl pointer-events-none z-20"
+            style={{
+              left: `${sticker.x}%`,
+              top: `${sticker.y}%`,
+              transform: 'translate(-50%, -50%)',
+            }}
+          >
+            {sticker.emoji}
+          </div>
+        ))}
       </div>
 
-{/* Bottom Controls - Facebook Style */}
+      {/* Bottom Controls */}
       <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/60 to-transparent px-4 py-6 pb-8 z-30">
         {isOwnStory ? (
-          // Own Story Controls - Pink Box
           <div className="flex items-center justify-between gap-3 bg-gradient-to-r from-pink-500 to-red-500 px-4 py-3 rounded-full shadow-lg">
-            {/* Views Count */}
             <button
               onClick={() => setShowViewers(!showViewers)}
-              className="flex items-center gap-2 text-white hover:text-white/80 transition font-semibold text-sm"
+              className="flex items-center gap-2 text-white font-semibold text-sm"
             >
               <Eye size={18} />
               <span>{currentStory.views_count}</span>
             </button>
 
-            {/* Delete Button */}
             <button
               onClick={() => setShowDeleteConfirm(true)}
-              className="flex items-center gap-2 text-white hover:text-white/80 transition font-semibold text-sm"
-              title="Delete story"
+              className="flex items-center gap-2 text-white font-semibold text-sm"
             >
               <Trash2 size={18} />
-              <span>Delete</span>
+              Delete
             </button>
 
-            {/* Add Story Button */}
             <button
               onClick={() => navigate("/story/upload")}
-              className="flex items-center gap-2 text-white hover:text-white/80 transition font-semibold text-sm"
-              title="Add new story"
+              className="flex items-center gap-2 text-white font-semibold text-sm"
             >
               <Plus size={18} />
-              <span>Add</span>
+              Add
             </button>
           </div>
         ) : (
-          // Other User's Story - Like Button with Liker Images
           <div className="flex items-center justify-end gap-4">
-            {/* Liker Profile Images */}
             {likers.length > 0 && (
               <div className="flex items-center -space-x-2">
                 {likers.slice(0, 3).map((liker, idx) => (
@@ -719,158 +673,143 @@ const StoryView: React.FC = () => {
                     key={liker.user_id}
                     src={getUserAvatar(liker)}
                     alt={liker.username}
-                    className="w-8 h-8 rounded-full border-2 border-black object-cover cursor-pointer hover:scale-110 transition"
-                    onClick={() => {
-                      if (liker.user_id) {
-                        navigate(`/user/${liker.user_id}`);
-                      }
-                    }}
-                    title={liker.username}
+                    className="w-8 h-8 rounded-full border-2 border-black object-cover cursor-pointer"
+                    onClick={() => liker.user_id && navigate(`/user/${liker.user_id}`)}
                     style={{ zIndex: 3 - idx }}
                   />
                 ))}
-                {likers.length > 3 && (
-                  <div className="w-8 h-8 rounded-full border-2 border-black bg-gray-700 flex items-center justify-center text-white text-xs font-semibold cursor-pointer hover:scale-110 transition"
-                    onClick={() => {
-                      setShowingLikes(true);
-                      setShowViewers(true);
-                    }}
-                  >
-                    +{likers.length - 3}
-                  </div>
-                )}
               </div>
             )}
 
-            {/* Heart Button */}
             <button
               onClick={handleLike}
-              className={`transition transform hover:scale-110 active:scale-95 ${
-                isLiked ? 'text-red-500' : 'text-white hover:text-red-400'
+              className={`transition transform hover:scale-110 ${
+                isLiked ? 'text-red-500' : 'text-white'
               }`}
             >
-              <Heart size={32} fill={isLiked ? 'currentColor' : 'none'} strokeWidth={2} />
+              <Heart size={32} fill={isLiked ? 'currentColor' : 'none'} />
             </button>
           </div>
         )}
       </div>
+    </div>
 
-      {/* Viewers/Likers Modal - Clean Modal Overlay */}
-      {showViewers && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-gray-900 rounded-2xl p-6 max-w-sm w-full mx-4 max-h-96 overflow-y-auto">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-white font-bold text-lg">
-                {showingLikes ? `${likers.length} Likes` : 'Who viewed your story'}
-              </h3>
-              <button
+    {/* Viewers Modal */}
+    {showViewers && (
+  <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50">
+    <div className="bg-gray-900 rounded-2xl p-6 max-w-sm w-full mx-4 max-h-96 overflow-y-auto">
+
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-white font-bold text-lg">
+          {showingLikes ? `${likers.length} Likes` : 'Who viewed your story'}
+        </h3>
+
+        <button
+          onClick={() => {
+            setShowViewers(false);
+            setShowingLikes(false);
+          }}
+          className="text-gray-400 hover:text-white transition"
+        >
+          <X size={20} />
+        </button>
+      </div>
+
+      {showingLikes ? (
+        likers.length > 0 ? (
+          <div className="space-y-3">
+            {likers.map((liker) => (
+              <div
+                key={liker.user_id}
+                className="flex items-center gap-3 hover:bg-gray-800 p-2 rounded-lg transition cursor-pointer"
                 onClick={() => {
+                  navigate(`/user/${liker.user_id}`);
                   setShowViewers(false);
-                  setShowingLikes(false);
                 }}
-                className="text-gray-400 hover:text-white transition"
               >
-                <X size={20} />
+                <img
+                  src={getUserAvatar(liker)}
+                  className="w-10 h-10 rounded-full object-cover"
+                />
+                <div>
+                  <p className="text-white text-sm font-semibold">
+                    {liker.username}
+                  </p>
+                  <p className="text-white/50 text-xs">
+                    Liked your story
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-gray-400 text-sm text-center py-8">
+            No likes yet
+          </p>
+        )
+      ) : (
+        viewers.length > 0 ? (
+          <div className="space-y-3">
+            {viewers.map((viewer) => (
+              <div
+                key={viewer.user_id}
+                className="flex items-center gap-3 hover:bg-gray-800 p-2 rounded-lg transition cursor-pointer"
+                onClick={() => {
+                  navigate(`/user/${viewer.user_id}`);
+                  setShowViewers(false);
+                }}
+              >
+                <img
+                  src={getUserAvatar(viewer)}
+                  className="w-10 h-10 rounded-full object-cover"
+                />
+                <div>
+                  <p className="text-white text-sm font-semibold">
+                    {viewer.username}
+                  </p>
+                  <p className="text-white/50 text-xs">
+                    Viewed your story
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-gray-400 text-sm text-center py-8">
+            No one has viewed your story yet
+          </p>
+        )
+      )}
+
+    </div>
+  </div>
+)}
+
+    {/* Delete Modal */}
+    {showDeleteConfirm && (
+      <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50">
+        <div className="bg-gray-900 rounded-2xl p-6 max-w-sm w-full mx-4">
+          <div className="text-center">
+            <Trash2 size={32} className="text-red-500 mx-auto mb-4" />
+            <h3 className="text-white font-bold text-xl mb-2">Delete Story?</h3>
+            <p className="text-gray-400 text-sm mb-6">
+              This story will be permanently deleted.
+            </p>
+            <div className="flex gap-3">
+              <button onClick={() => setShowDeleteConfirm(false)} className="flex-1 bg-gray-700 py-3 rounded-lg">
+                Cancel
+              </button>
+              <button onClick={handleDeleteStory} className="flex-1 bg-red-500 py-3 rounded-lg">
+                Delete
               </button>
             </div>
-            
-            {showingLikes ? (
-              // Show likers
-              likers.length > 0 ? (
-                <div className="space-y-3">
-                  {likers.map((liker) => (
-                    <div 
-                      key={liker.user_id}
-                      className="flex items-center gap-3 hover:bg-gray-800 p-2 rounded-lg transition cursor-pointer"
-                      onClick={() => {
-                        if (liker.user_id) {
-                          navigate(`/user/${liker.user_id}`);
-                          setShowViewers(false);
-                        }
-                      }}
-                    >
-                      <img
-                        src={getUserAvatar(liker)}
-                        alt={liker.username}
-                        className="w-10 h-10 rounded-full object-cover"
-                      />
-                      <div className="flex-1">
-                        <p className="text-white text-sm font-semibold">{liker.username}</p>
-                        <p className="text-white/50 text-xs">Liked your story</p>
-                      </div>
-                      <Heart size={16} className="text-red-500" fill="currentColor" />
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-gray-400 text-sm text-center py-8">No likes yet</p>
-              )
-            ) : (
-              // Show viewers
-              viewers.length > 0 ? (
-                <div className="space-y-3">
-                  {viewers.map((viewer) => (
-                    <div 
-                      key={viewer.user_id}
-                      className="flex items-center gap-3 hover:bg-gray-800 p-2 rounded-lg transition cursor-pointer"
-                      onClick={() => {
-                        if (viewer.user_id) {
-                          navigate(`/user/${viewer.user_id}`);
-                          setShowViewers(false);
-                        }
-                      }}
-                    >
-                      <img
-                        src={getUserAvatar(viewer)}
-                        alt={viewer.username}
-                        className="w-10 h-10 rounded-full object-cover"
-                      />
-                      <div className="flex-1">
-                        <p className="text-white text-sm font-semibold">{viewer.username}</p>
-                        <p className="text-white/50 text-xs">Viewed your story</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-gray-400 text-sm text-center py-8">No one has viewed your story yet</p>
-              )
-            )}
           </div>
         </div>
-      )}
-      
-      {/* Delete Confirmation Modal */}
-      {showDeleteConfirm && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-gray-900 rounded-2xl p-6 max-w-sm w-full mx-4">
-            <div className="text-center">
-              <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Trash2 size={32} className="text-red-500" />
-              </div>
-              <h3 className="text-white font-bold text-xl mb-2">Delete Story?</h3>
-              <p className="text-gray-400 text-sm mb-6">This story will be permanently deleted and removed from your profile.</p>
-              
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setShowDeleteConfirm(false)}
-                  className="flex-1 bg-gray-700 hover:bg-gray-600 text-white py-3 rounded-lg font-semibold transition"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleDeleteStory}
-                  className="flex-1 bg-red-500 hover:bg-red-600 text-white py-3 rounded-lg font-semibold transition"
-                >
-                  Delete
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
+      </div>
+    )}
+
+  </div>
+);
 };
 
 export default StoryView;

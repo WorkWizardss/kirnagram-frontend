@@ -1,0 +1,8 @@
+.glass-header {
+  background: rgba(30, 30, 30, 0.6); /* semi-transparent dark */
+  backdrop-filter: blur(12px);        /* glass blur effect */
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 4px 24px rgba(0,0,0,0.12);
+}

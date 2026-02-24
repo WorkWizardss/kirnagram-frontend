@@ -12,7 +12,7 @@ const auth = getAuth();
 export default function RemixViewer() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { remixes = [], startIndex = 0 } = location.state || {};
+  const { remixes = [], startIndex = 0, fromProfile = false } = location.state || {};
   const [currentIndex, setCurrentIndex] = useState(startIndex);
   const [showCrop, setShowCrop] = useState(false);
   const [addPostAnim, setAddPostAnim] = useState(false);
@@ -20,7 +20,7 @@ export default function RemixViewer() {
 
   if (!remixes.length) {
     return (
-      <MainLayout showRightSidebar={false}>
+      <MainLayout showRightSidebar={true} fromProfile={fromProfile}>
         <div className="text-center py-20">No remixes found</div>
       </MainLayout>
     );
@@ -28,7 +28,7 @@ export default function RemixViewer() {
 
   const current = remixes[currentIndex];
   return (
-    <MainLayout showRightSidebar={false}>
+    <MainLayout showRightSidebar={true} fromProfile={fromProfile}>
       <div className="flex flex-col items-center justify-center min-h-[80vh] pb-10">
         {/* Back Button */}
         <div className="w-full flex items-center mb-4 px-4">

@@ -303,7 +303,7 @@ const Remix = () => {
 
   if (loading) {
     return (
-      <MainLayout showRightSidebar={false}>
+      <MainLayout showRightSidebar={true}>
         <div className="max-w-4xl mx-auto py-16 text-center text-muted-foreground">
           Loading remix...
         </div>
@@ -312,7 +312,7 @@ const Remix = () => {
   }
 
   return (
-    <MainLayout showRightSidebar={false}>
+    <MainLayout showRightSidebar={true}>
       <div className="w-full flex justify-start max-w-4xl mx-auto pt-4 pb-2">
         <Button variant="ghost" onClick={() => navigate(-1)}>
           ← Back
@@ -345,13 +345,20 @@ const Remix = () => {
               {tagsLabel && (
                 <p className="text-xs text-muted-foreground">Tags: {tagsLabel}</p>
               )}
-              {promptInfo.image && (
-                <img
-                  src={promptInfo.image}
-                  alt="Prompt sample"
-                  className="w-full h-56 object-cover rounded-xl"
-                />
-              )}
+              <div className="w-full flex items-center justify-center min-h-[220px] bg-gradient-to-br from-muted/60 to-background rounded-xl border border-border/60 shadow-lg overflow-hidden">
+                {promptInfo.image ? (
+                  <img
+                    src={promptInfo.image}
+                    alt="Prompt sample"
+                    className="max-w-full max-h-72 object-contain rounded-xl transition-transform duration-200 hover:scale-105 shadow-md"
+                  />
+                ) : (
+                  <div className="flex flex-col items-center justify-center w-full h-56 text-muted-foreground">
+                    <span className="text-3xl mb-2">🖼️</span>
+                    <span className="text-sm">No sample image</span>
+                  </div>
+                )}
+              </div>
             </Card>
 
             <Card className="glass-card border border-border/60 p-5 space-y-4">

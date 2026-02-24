@@ -44,7 +44,26 @@ const ForgotPassword = () => {
 
   return (
     <div className="min-h-screen flex overflow-x-hidden">
-      {/* Left Panel - Form */}
+      {/* Left Panel - Image */}
+      <div className="hidden lg:block lg:w-1/2 relative overflow-hidden">
+        <img
+          src={heroBanner}
+          alt="Cyber Renaissance"
+          className="absolute inset-0 w-full h-full object-cover"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent" />
+        <div className="absolute bottom-12 left-12 right-12">
+          <h2 className="text-3xl font-display font-bold mb-3 text-foreground">
+            The <span className="bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">Cyber Renaissance</span>
+            <br />
+            Has Arrived
+          </h2>
+          <p className="text-muted-foreground">
+            Join millions of creators transforming their imagination into reality with AI-powered tools.
+          </p>
+        </div>
+      </div>
+      {/* Right Panel - Form */}
       <div className="flex-1 flex flex-col justify-center px-6 py-12 lg:px-20 bg-background relative overflow-x-hidden">
         <div className="absolute inset-0 opacity-10 pointer-events-none bg-gradient-to-br from-primary/30 via-transparent to-primary/20" />
         <div className="relative max-w-md mx-auto w-full">
@@ -100,25 +119,6 @@ const ForgotPassword = () => {
             <Link to="/login" className="text-primary hover:underline font-medium">
               Back to login
             </Link>
-          </p>
-        </div>
-      </div>
-      {/* Right Panel - Image */}
-      <div className="hidden lg:block lg:w-1/2 relative overflow-hidden">
-        <img
-          src={heroBanner}
-          alt="Cyber Renaissance"
-          className="absolute inset-0 w-full h-full object-cover"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent" />
-        <div className="absolute bottom-12 left-12 right-12">
-          <h2 className="text-3xl font-display font-bold mb-3 text-foreground">
-            The <span className="bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">Cyber Renaissance</span>
-            <br />
-            Has Arrived
-          </h2>
-          <p className="text-muted-foreground">
-            Join millions of creators transforming their imagination into reality with AI-powered tools.
           </p>
         </div>
       </div>

@@ -61,6 +61,7 @@ const PostsView = () => {
     ((location.state as any)?.initialPostId as string | undefined) || queryPostId;
   const showOnlyInitial = Boolean(queryPostId && !statePosts);
   const viewType = (location.state as any)?.viewType as "posts" | "prompts" | undefined;
+  const fromProfile = Boolean((location.state as any)?.fromProfile);
   const openLikesPostId = (location.state as any)?.openLikesPostId as string | undefined;
   const openCommentsPostId = (location.state as any)?.openCommentsPostId as string | undefined;
   const [isMuted, setIsMuted] = useState(true);
@@ -221,59 +222,49 @@ useEffect(() => {
     }
   }, [loading, initialOpenHandled, openLikesPostId, openCommentsPostId]);
   useEffect(() => {
-  const observer = new IntersectionObserver(
-    (entries) => {
-      entries.forEach((entry) => {
-        const video = entry.target as HTMLVideoElement;
-
-        if (entry.isIntersecting && entry.intersectionRatio >= 0.7) {
-
-          // Pause ALL other videos
-          Object.values(videoRefs.current).forEach((v) => {
-            if (v && v !== video) {
-              v.pause();
-              v.currentTime = 0; // RESET other videos
-            }
-          });
-
-          // Start from beginning
-          video.currentTime = 0;
-          video.play().catch(() => {});
-
-        } else {
-          video.pause();
-          video.currentTime = 0; // IMPORTANT: reset when leaving screen
-        }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          const video = entry.target as HTMLVideoElement;
+  
+          if (entry.isIntersecting && entry.intersectionRatio >= 0.7) {
+  
+            // Pause ALL other videos
+            Object.values(videoRefs.current).forEach((v) => {
+              if (v && v !== video) {
+                v.pause();
+                v.currentTime = 0; // RESET other videos
+              }
+            });
+  
+            // Start from beginning
+            video.currentTime = 0;
+            video.play().catch(() => {});
+  
+          } else {
+            video.pause();
+            video.currentTime = 0; // IMPORTANT: reset when leaving screen
+          }
+        });
+      },
+      { threshold: 0.7 }
+    );
+  
+    const timer = setTimeout(() => {
+      Object.values(videoRefs.current).forEach((video) => {
+        if (video) observer.observe(video);
       });
-    },
-    { threshold: 0.7 }
-  );
+    }, 200);
+  
+    return () => {
+      clearTimeout(timer);
+      observer.disconnect();
+    };
+  }, []);
 
-  const timer = setTimeout(() => {
-    Object.values(videoRefs.current).forEach((video) => {
-      if (video) observer.observe(video);
-    });
-  }, 200);
-
-  return () => {
-    clearTimeout(timer);
-    observer.disconnect();
-  };
-}, [posts]);
-
-  const isValidRemoteImage = (url?: string) =>
-    typeof url === "string" &&
-    url.trim() !== "" &&
-    url.startsWith("http") &&
-    !url.includes("default") &&
-    !url.includes("placeholder") &&
-    !url.startsWith("blob:");
-
-  const getProfileImage = (profile?: UserSummary) => {
-    if (profile?.image_name && isValidRemoteImage(profile.image_name)) return profile.image_name;
-    if (profile?.gender === "male") return maleIcon;
-    if (profile?.gender === "female") return femaleIcon;
-    return profileIcon;
+  // Checks if a string is a valid remote image URL (http/https and ends with image extension)
+  const isValidRemoteImage = (url: string) => {
+    return /^https?:\/\/.+\.(jpg|jpeg|png|gif|webp|bmp|svg)$/i.test(url);
   };
 
   const getUserAvatar = (user?: {
@@ -564,13 +555,23 @@ useEffect(() => {
   };
 
   return (
-    <MainLayout showRightSidebar={false}>
-      <div className="mx-auto w-full max-w-4xl space-y-6 pb-20">
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
-          <h1 className="text-xl font-display font-bold">{viewType === "prompts" ? "Prompts" : "Posts"}</h1>
+    <MainLayout showRightSidebar={true} fromProfile={fromProfile}>
+
+      <div className="mx-auto w-full max-w-[900px] space-y-6 pb-20 flex flex-col items-center">
+        {/* Back arrow like screenshot: left, small, no text, vertically centered with title */}
+        <div className="w-full flex items-center mb-2">
+          <button
+            className="flex items-center text-foreground focus:outline-none bg-transparent border-none shadow-none px-0 py-0 hover:bg-transparent hover:shadow-none text-xl"
+            aria-label="Back"
+            onClick={() => navigate(-1)}
+            style={{ height: 36, width: 36, justifyContent: "center" }}
+          >
+            <span className="text-2xl" style={{ lineHeight: 1 }}>&larr;</span>
+          </button>
+          <div className="ml-2">
+            <span className="text-2xl font-bold leading-tight">{viewType === "prompts" ? "Prompts" : "Posts"}</span>
+            {/* Optionally, add a subtitle here if needed, e.g. <div className="text-sm text-muted-foreground">Track your creator revenue</div> */}
+          </div>
         </div>
 
         {loading ? (
@@ -578,205 +579,201 @@ useEffect(() => {
         ) : orderedPosts.length === 0 ? (
           <div className="py-16 text-center text-muted-foreground">No posts yet.</div>
         ) : (
-          <div className="space-y-8">
-            {orderedPosts.map((post) => {
-              const isLiked = currentUserId ? post.likes?.includes(currentUserId) : false;
-              return (
-                <div
-                  key={post._id}
-                  className="bg-background"
-                  data-post-id={post._id}
-                  ref={(node) => {
-                    postRefs.current[post._id] = node;
-                  }}
-                >
-                  <div className="flex items-center justify-between gap-3 px-3 pt-3 pb-2">
-                    <button
-                      className="flex items-center gap-3 min-w-0 flex-1"
-                      onClick={() =>
-                        navigate(currentUserId === post.user_id ? "/profile" : `/user/${post.user_id}`)
-                      }
+          <div className="w-full flex justify-center">
+            <div className="bg-card rounded-3xl shadow-xl border border-border max-w-[600px] w-full mx-auto p-0 overflow-hidden flex flex-col items-center">
+              <div className="space-y-8 w-full">
+                {orderedPosts.map((post) => {
+                  const isLiked = currentUserId ? post.likes?.includes(currentUserId) : false;
+                  return (
+                    <div
+                      key={post._id}
+                      className="bg-background"
+                      data-post-id={post._id}
+                      ref={(node) => {
+                        postRefs.current[post._id] = node;
+                      }}
                     >
-                      <img
-                        src={getProfileImage(userProfiles[post.user_id])}
-                        alt={userProfiles[post.user_id]?.username || "User"}
-                        className="w-9 h-9 rounded-full object-cover ring-2 ring-primary/40"
-                      />
-                      <div className="text-left min-w-0">
-                        <p className="text-sm font-semibold truncate">
-                          {userProfiles[post.user_id]?.username || "User"}
-                        </p>
-                        {userProfiles[post.user_id]?.full_name && (
-                          <p className="text-xs text-muted-foreground truncate">
-                            {userProfiles[post.user_id]?.full_name}
-                          </p>
-                        )}
-                      </div>
-                    </button>
-                    <div className="relative shrink-0">
-                      <button
-                        className="h-8 w-8 rounded-full hover:bg-muted flex items-center justify-center"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          setMenuPostId((prev) => (prev === post._id ? null : post._id));
-                        }}
-                        aria-label="Post actions"
-                      >
-                        <MoreVertical className="w-4 h-4" />
-                      </button>
-                      {menuPostId === post._id && (
-                        <div className="absolute top-9 right-0 w-44 rounded-xl border border-border bg-background shadow-lg overflow-hidden z-10">
+                      {/* ...existing post content (user info, image/video, actions, etc.)... */}
+                      <div className="flex items-center justify-between gap-3 px-3 pt-3 pb-2">
+                        <button
+                          className="flex items-center gap-3 min-w-0 flex-1"
+                          onClick={() =>
+                            navigate(currentUserId === post.user_id ? "/profile" : `/user/${post.user_id}`)
+                          }
+                        >
+                          <img
+                            src={getUserAvatar(userProfiles[post.user_id])}
+                            alt={userProfiles[post.user_id]?.username || "User"}
+                            className="w-9 h-9 rounded-full object-cover ring-2 ring-primary/40"
+                          />
+                          <div className="text-left min-w-0">
+                            <p className="text-sm font-semibold truncate">
+                              {userProfiles[post.user_id]?.username || "User"}
+                            </p>
+                            {userProfiles[post.user_id]?.full_name && (
+                              <p className="text-xs text-muted-foreground truncate">
+                                {userProfiles[post.user_id]?.full_name}
+                              </p>
+                            )}
+                          </div>
+                        </button>
+                        <div className="relative shrink-0">
                           <button
-                            className="w-full px-4 py-2 text-left text-sm hover:bg-muted flex items-center gap-2"
-                            onClick={() => {
-                              setMenuPostId(null);
-                              handleShare(post);
+                            className="h-8 w-8 rounded-full flex items-center justify-center"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setMenuPostId((prev) => (prev === post._id ? null : post._id));
                             }}
+                            aria-label="Post actions"
                           >
-                            <Share2 className="w-4 h-4" />
-                            Share
+                            <MoreVertical className="w-4 h-4" />
                           </button>
-                          <button
-                            className="w-full px-4 py-2 text-left text-sm hover:bg-muted flex items-center gap-2"
-                            onClick={() => {
-                              setMenuPostId(null);
-                              handleAddToStory(post);
-                            }}
-                          >
-                            <Plus className="w-4 h-4" />
-                            Add to Story
-                          </button>
-                          {currentUserId === post.user_id && (
-                            <button
-                              className="w-full px-4 py-2 text-left text-sm hover:bg-muted flex items-center gap-2 text-red-500"
-                              onClick={() => {
-                                setMenuPostId(null);
-                                handleDelete(post._id);
-                              }}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                              Delete
-                            </button>
+                          {menuPostId === post._id && (
+                            <div className="absolute top-9 right-0 w-44 rounded-xl border border-border bg-background shadow-lg overflow-hidden z-10">
+                              <button
+                                className="w-full px-4 py-2 text-left text-sm hover:bg-muted flex items-center gap-2"
+                                onClick={() => {
+                                  setMenuPostId(null);
+                                  handleShare(post);
+                                }}
+                              >
+                                <Share2 className="w-4 h-4" />
+                                Share
+                              </button>
+                              <button
+                                className="w-full px-4 py-2 text-left text-sm hover:bg-muted flex items-center gap-2"
+                                onClick={() => {
+                                  setMenuPostId(null);
+                                  handleAddToStory(post);
+                                }}
+                              >
+                                <Plus className="w-4 h-4" />
+                                Add to Story
+                              </button>
+                              {currentUserId === post.user_id && (
+                                <button
+                                  className="w-full px-4 py-2 text-left text-sm hover:bg-muted flex items-center gap-2 text-red-500"
+                                  onClick={() => {
+                                    setMenuPostId(null);
+                                    handleDelete(post._id);
+                                  }}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                  Delete
+                                </button>
+                              )}
+                            </div>
                           )}
                         </div>
+                      </div>
+                      <div className="relative w-full overflow-hidden bg-black">
+                        {post.type === "video" ? (
+                          <>
+                            <video
+                              ref={(el) => {
+                                if (el) videoRefs.current[post._id] = el;
+                              }}
+                              src={post.video_url}
+                              className="w-full object-cover"
+                              style={{ aspectRatio: post.ratio?.replace(":", "/") || "9 / 16" }}
+                              loop
+                              muted={isMuted}
+                              playsInline
+                              preload="metadata"
+                            />
+                            <button
+                              onClick={toggleMute}
+                              className="absolute bottom-4 right-4 bg-black/60 backdrop-blur-md text-white rounded-full p-3 transition active:scale-90"
+                            >
+                              {isMuted ? "🔇" : "🔊"}
+                            </button>
+                          </>
+                        ) : (
+                          <img
+                            src={post.image_url}
+                            alt={post.caption || "Post"}
+                            className="w-full object-cover"
+                            style={{ aspectRatio: post.ratio?.replace(":", "/") || "1 / 1" }}
+                          />
+                        )}
+                        {post.is_prompt_post && (
+                          <span className="absolute top-3 right-3 px-3 py-1 text-xs font-semibold bg-primary/90 text-primary-foreground rounded-full flex items-center gap-1">
+                            <span className="text-sm">🔥</span> {post.prompt_badge || "Prompt"}
+                          </span>
+                        )}
+                      </div>
+                      {post.is_prompt_post && post.tags && post.tags.length > 0 && (
+                        <div className="px-3 pt-3 flex flex-wrap gap-2">
+                          {post.tags.map((tag) => (
+                            <span
+                              key={tag}
+                              className="px-3 py-1 text-xs font-medium rounded-full bg-muted text-muted-foreground"
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
                       )}
-                    </div>
-                  </div>
-                  <div className="relative w-full overflow-hidden bg-black">
-
-{post.type === "video" ? (
-  
-  <>
-    <video
-      ref={(el) => {
-        if (el) videoRefs.current[post._id] = el;
-      }}
-      src={post.video_url}
-      className="w-full object-cover"
-      style={{ aspectRatio: post.ratio?.replace(":", "/") || "9 / 16" }}
-      loop
-      muted={isMuted}
-      playsInline
-      preload="metadata"
-    />
-    <button
-      onClick={toggleMute}
-      className="
-        absolute bottom-4 right-4
-        bg-black/60 backdrop-blur-md
-        text-white
-        rounded-full
-        p-3
-        transition
-        active:scale-90
-      "
-    >
-      {isMuted ? "🔇" : "🔊"}
-    </button>
-  </>
-) : (
-  <img
-    src={post.image_url}
-    alt={post.caption || "Post"}
-    className="w-full object-cover"
-    style={{ aspectRatio: post.ratio?.replace(":", "/") || "1 / 1" }}
-  />
-)}
-{post.is_prompt_post && (
-                      <span className="absolute top-3 right-3 px-3 py-1 text-xs font-semibold bg-primary/90 text-primary-foreground rounded-full flex items-center gap-1">
-                        <span className="text-sm">🔥</span> {post.prompt_badge || "Prompt"}
-                      </span>
-                    )}
-</div>
-
-                  {post.is_prompt_post && post.tags && post.tags.length > 0 && (
-                    <div className="px-3 pt-3 flex flex-wrap gap-2">
-                      {post.tags.map((tag) => (
-                        <span
-                          key={tag}
-                          className="px-3 py-1 text-xs font-medium rounded-full bg-muted text-muted-foreground"
-                        >
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                  {post.is_prompt_post && (
-                    <div className="px-3 pt-3">
-                      <button
-                        className="w-full flex items-center justify-center gap-2 py-3 bg-gradient-to-r from-secondary to-accent text-secondary-foreground rounded-xl font-semibold text-sm hover:shadow-lg hover:shadow-secondary/30 transition-all"
-                        onClick={() => {
-                          if (!post.prompt_id) {
-                            toast({
-                              title: "Remix unavailable",
-                              description: "This prompt is missing an ID.",
-                              variant: "destructive",
-                            });
-                            return;
-                          }
-                          navigate(`/remix/${post.prompt_id}`);
-                        }}
-                      >
-                        <Sparkles className="w-5 h-5" />
-                        Remix This Style
-                      </button>
-                    </div>
-                  )}
-                  <div className="px-3 py-4 space-y-3">
-                    <div className="flex items-center gap-6 text-sm">
-                      <button
-                        className={`flex items-center gap-2 ${isLiked ? "text-red-500" : "text-foreground"}`}
-                        onClick={() => handleLike(post._id)}
-                      >
-                        <Heart className="w-5 h-5" fill={isLiked ? "currentColor" : "none"} />
-                        <span onClick={(event) => {
-                          event.stopPropagation();
-                          openLikes(post._id);
-                        }}>
-                          {post.likes?.length ?? 0}
-                        </span>
-                      </button>
-                      <button
-                        className="flex items-center gap-2 text-foreground"
-                        onClick={() => openComments(post._id)}
-                      >
-                        <MessageCircle className="w-5 h-5" />
-                        <span>{post.comments?.length ?? 0}</span>
-                      </button>
-                      <div className="flex items-center gap-2 text-foreground">
-                        <Eye className="w-5 h-5" />
-                        <span>{formatCount(post.views?.length ?? 0)}</span>
+                      {post.is_prompt_post && (
+                        <div className="px-3 pt-3">
+                          <button
+                            className="w-full flex items-center justify-center gap-2 py-3 bg-gradient-to-r from-secondary to-accent text-secondary-foreground rounded-xl font-semibold text-sm hover:shadow-lg hover:shadow-secondary/30 transition-all"
+                            onClick={() => {
+                              if (!post.prompt_id) {
+                                toast({
+                                  title: "Remix unavailable",
+                                  description: "This prompt is missing an ID.",
+                                  variant: "destructive",
+                                });
+                                return;
+                              }
+                              navigate(`/remix/${post.prompt_id}`);
+                            }}
+                          >
+                            <Sparkles className="w-5 h-5" />
+                            Remix This Style
+                          </button>
+                        </div>
+                      )}
+                      <div className="px-3 py-4 space-y-3">
+                        <div className="flex items-center gap-6 text-sm">
+                          <button
+                            className={`flex items-center gap-2 ${isLiked ? "text-red-500" : "text-foreground"}`}
+                            onClick={() => handleLike(post._id)}
+                          >
+                            <Heart className="w-5 h-5" fill={isLiked ? "currentColor" : "none"} />
+                            <span onClick={(event) => {
+                              event.stopPropagation();
+                              openLikes(post._id);
+                            }}>
+                              {post.likes?.length ?? 0}
+                            </span>
+                          </button>
+                          <button
+                            className="flex items-center gap-2 text-foreground"
+                          >
+                            <MessageCircle className="w-5 h-5" />
+                            <span onClick={(event) => {
+                              event.stopPropagation();
+                              openComments(post._id);
+                            }}>
+                              {post.comments?.length ?? 0}
+                            </span>
+                          </button>
+                          <span className="flex items-center gap-1 text-foreground">
+                            <Eye className="w-5 h-5" />
+                            {post.views?.length ?? 0}
+                          </span>
+                        </div>
                       </div>
                     </div>
-                    {post.caption && <p className="text-sm text-muted-foreground">{post.caption}</p>}
-                  </div>
-                </div>
-              );
-            })}
+                  );
+                })}
+              </div>
+            </div>
           </div>
         )}
       </div>
-
       <Dialog open={showLikes} onOpenChange={setShowLikes}>
         <DialogContent className="max-w-md">
           <DialogHeader>

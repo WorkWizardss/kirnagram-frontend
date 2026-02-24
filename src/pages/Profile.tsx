@@ -15,6 +15,7 @@ import {
   Youtube,
   Facebook,
   Instagram,
+  Eye,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
@@ -84,6 +85,7 @@ const Profile = () => {
         posts: myPosts,
         startIndex: index,
         viewType: "posts",
+        fromProfile: true,
       },
     });
   };
@@ -94,6 +96,7 @@ const Profile = () => {
         posts: myPromptPosts,
         startIndex: index,
         viewType: "prompts",
+        fromProfile: true,
       },
     });
   };
@@ -217,7 +220,7 @@ const Profile = () => {
   // Show loading state
   if (loading) {
     return (
-      <MainLayout showRightSidebar={false}>
+      <MainLayout showRightSidebar={true}>
         <div className="max-w-4xl mx-auto pb-20 md:pb-0 flex items-center justify-center h-96">
           <p className="text-muted-foreground">Loading profile...</p>
         </div>
@@ -228,7 +231,7 @@ const Profile = () => {
   // Handle missing profile
   if (!profile) {
     return (
-      <MainLayout showRightSidebar={false}>
+      <MainLayout showRightSidebar={true}>
         <div className="max-w-4xl mx-auto pb-20 md:pb-0 flex items-center justify-center h-96">
           <p className="text-muted-foreground">Failed to load profile</p>
         </div>
@@ -269,7 +272,7 @@ const Profile = () => {
   console.log("🎯 Rendering profile with myStories.length:", myStories.length);
 
   return (
-    <MainLayout showRightSidebar={false}>
+    <MainLayout showRightSidebar={true}>
       <div className="max-w-4xl mx-auto pb-20 md:pb-0 overflow-x-hidden">
         {/* Cover Photo */}
         <div className="relative h-32 sm:h-48 md:h-64 rounded-none sm:rounded-2xl overflow-hidden">
@@ -570,25 +573,28 @@ const Profile = () => {
           )
         ) : activeTab === "remixes" ? (
           remixes.length > 0 ? (
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-3 gap-1 sm:gap-2 p-1 sm:p-2">
               {remixes.map((item: any, index: number) => (
                 <button
                   key={item.id}
                   type="button"
-                  className="relative group cursor-pointer"
+                  className="group relative aspect-square overflow-hidden bg-muted"
                   onClick={() =>
                     navigate("/remix-view", {
                       state: {
                         remixes,
                         startIndex: index,
+                        fromProfile: true,
                       },
                     })
                   }
                 >
                   <img
                     src={item.image_url}
-                    className="w-full h-32 object-cover rounded-md"
+                    alt={item.caption || "Remix"}
+                    className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                   />
+                  {/* Always show view count in bottom left for consistency */}
                  
                 </button>
               ))}

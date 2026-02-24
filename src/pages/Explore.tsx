@@ -85,10 +85,38 @@ type UserSummary = {
 const API_BASE = "http://127.0.0.1:8000";
 
 const Explore = () => {
+    // --- Follow/Unfollow logic for search user cards ---
+    const handleFollowClick = async (user: any, idx: number) => {
+      if (!currentUser) return;
+      setActionLoading(user.firebase_uid);
+      try {
+        const token = await currentUser.getIdToken();
+        // If already following, do nothing (or could implement unfollow)
+        if (user.follow_status === 'following') return;
+        // Send follow request
+        const res = await fetch(`http://127.0.0.1:8000/follow/send-request/${user.firebase_uid}`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          // Get new status from response
+          const data = await res.json();
+          // Update follow_status in searchResults
+          setSearchResults((prev: any[]) => prev.map((u, i) =>
+            i === idx ? { ...u, follow_status: data.status === 'success' && data.message?.toLowerCase().includes('requested') ? 'requested' : 'following' } : u
+          ));
+        }
+      } catch (e) {
+        // Optionally show error
+      } finally {
+        setActionLoading(null);
+      }
+    };
   const [activeCategory, setActiveCategory] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [isShuffling, setIsShuffling] = useState(false);
   const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [promptResults, setPromptResults] = useState<Post[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -162,21 +190,30 @@ const Explore = () => {
 
   // Navigation for remix posts
   const handleRemixClick = (post: Post) => {
-    if (post.prompt_id) {
-      navigate(`/remix/${post.prompt_id}`);
-    }
-  };
+  console.log("Clicked Remix Post:", post);
+  console.log("Prompt ID:", post.prompt_id);
+
+  if (post.prompt_id) {
+    navigate(`/remix/${post.prompt_id}`);
+  } else {
+    console.log("❌ No prompt_id found");
+  }
+};
 
   // Search logic (unchanged)
   const handleSearch = async (query: string) => {
     setSearchQuery(query);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setPromptResults([]);
     if (!query.trim() || !currentUser) {
       setSearchResults([]);
+      setPromptResults([]);
       return;
     }
     setIsSearching(true);
     try {
       const token = await currentUser.getIdToken();
+      // Username search
       const response = await fetch(`http://127.0.0.1:8000/follow/search/${encodeURIComponent(query)}`, {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -186,6 +223,34 @@ const Explore = () => {
         const data = await response.json();
         setSearchResults(data.users || []);
       }
+      // Prompt ID search (local, from posts)
+      const lowerQuery = query.trim().toLowerCase();
+
+      // Debug: log all remix posts and their prompt_badge and prompt_id
+      const remixDebug = posts.filter((p) => p.is_prompt_post).map((p) => ({
+        _id: p._id,
+        prompt_badge: p.prompt_badge,
+        prompt_id: p.prompt_id,
+        image_url: p.image_url,
+      }));
+      console.log('All remix posts:', remixDebug);
+      console.log('Searching for prompt badge or prompt_id:', lowerQuery);
+
+      // Match if badge or prompt_id equals or contains the query (case-insensitive, trimmed)
+      const promptMatches = posts.filter((p) => {
+        if (!p.is_prompt_post) return false;
+        const badge = String(p.prompt_badge || "").trim().toLowerCase();
+        const pid = String(p.prompt_id || "").trim().toLowerCase();
+        return (
+          badge === lowerQuery ||
+          badge.includes(lowerQuery) ||
+          pid === lowerQuery ||
+          pid.includes(lowerQuery)
+        );
+      });
+
+      console.log('Prompt matches:', promptMatches);
+      setPromptResults(promptMatches);
     } catch (error) {
       console.error("Search failed:", error);
     } finally {
@@ -195,6 +260,7 @@ const Explore = () => {
 
   const handleShuffle = () => {
     setIsShuffling(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
     setTimeout(() => setIsShuffling(false), 500);
   };
 
@@ -239,7 +305,7 @@ if (gender === "female") {
   };
 
   return (
-    <MainLayout showRightSidebar={false}>
+    <MainLayout showRightSidebar={true}>
       <div className="w-full min-h-screen pb-24 md:pb-8 bg-background overflow-x-hidden">
         <div className="max-w-2xl md:max-w-6xl mx-auto">
         
@@ -270,12 +336,156 @@ if (gender === "female") {
         </div>
         
 
+
         {/* Search Results Section */}
-        {searchQuery.trim() && (
-          /* Render your search results section here (type definitions moved to top-level) */
-          null
+     {searchQuery.trim() && (
+  <div className="px-4 md:px-6 pb-6">
+
+    {/* Searching State */}
+    {isSearching && (
+      <div className="text-center text-muted-foreground py-6">
+        Searching...
+      </div>
+    )}
+
+    {!isSearching && (
+      <>
+        {/* ================= USER RESULTS ================= */}
+        {searchResults.length > 0 && (
+          <div className="space-y-4 mb-8">
+            {searchResults.map((user: any, idx: number) => (
+              <div
+                key={user.firebase_uid}
+                className="relative flex items-center gap-4 p-4 rounded-2xl bg-card border border-border shadow-sm cursor-pointer hover:border-primary/50 transition-all hover:scale-105"
+                onClick={(e) => {
+                  if ((e.target as HTMLElement).closest("button")) return;
+                  navigate(`/user/${user.firebase_uid}`);
+                }}
+              >
+                <div className="relative">
+                  <img
+                    src={getProfileImage(user)}
+                    alt={user.full_name || user.username || "User"}
+                    className="w-16 h-16 rounded-full object-cover border border-border"
+                  />
+                  {user.is_creator && (
+                    <span className="absolute -bottom-1 -right-1 bg-gradient-to-r from-primary to-secondary text-white text-[10px] px-2 py-0.5 rounded-full font-semibold shadow-md border border-white flex items-center gap-1">
+                      <Crown className="w-3 h-3 mr-0.5 inline-block" />
+                      Creator
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex flex-col min-w-0 flex-1">
+                  <span className="font-semibold text-base truncate">
+                    {user.full_name || user.username || "User"}
+                  </span>
+                  <span className="text-xs text-muted-foreground truncate">
+                    @{user.username}
+                  </span>
+                </div>
+
+                <div className="ml-auto">
+                  {user.follow_status === "following" ? (
+                    <button disabled className="px-4 py-1.5 rounded-full bg-muted border border-border text-xs">
+                      Following
+                    </button>
+                  ) : user.follow_status === "requested" ? (
+                    <button disabled className="px-4 py-1.5 rounded-full bg-muted border border-border text-xs">
+                      Requested
+                    </button>
+                  ) : user.follow_status === "pending" ? (
+                    <button disabled className="px-4 py-1.5 rounded-full bg-muted border border-border text-xs">
+                      Pending
+                    </button>
+                  ) : (
+                    <button
+                      className="px-4 py-1.5 rounded-full bg-primary text-white text-xs hover:bg-primary/90 transition-all"
+                      disabled={actionLoading === user.firebase_uid}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleFollowClick(user, idx);
+                      }}
+                    >
+                      {actionLoading === user.firebase_uid ? "..." : "Follow"}
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
         )}
 
+        {/* ================= PROMPT RESULTS ================= */}
+        {promptResults.length > 0 && (
+          <div>
+            <h3 className="text-base font-semibold mb-3">Prompts</h3>
+
+            <div
+              className="grid grid-cols-2 sm:grid-cols-3 gap-3"
+              style={{ gridAutoRows: "120px" }}
+            >
+              {promptResults.map((post, index) => {
+                const validImage =
+                  typeof post.image_url === "string" &&
+                  post.image_url.trim() !== "";
+
+                const fallbackImage = "/broken-image.png";
+
+                return (
+                  <div
+                    key={post._id}
+                    className={cn(
+                      "relative rounded-2xl overflow-hidden cursor-pointer group border border-border bg-card hover:border-primary/50 transition-all",
+                      index === 0
+                        ? "col-span-2 row-span-2"
+                        : index < 3
+                        ? "col-span-1 row-span-2"
+                        : "col-span-1 row-span-1"
+                    )}
+                    onClick={() =>
+                      post.prompt_id && navigate(`/remix/${post.prompt_id}`)
+                    }
+                  >
+                    <img
+                      src={validImage ? post.image_url : fallbackImage}
+                      alt={post.prompt_badge || "Remix"}
+                      className="w-full h-full object-cover opacity-80 group-hover:opacity-100 group-hover:scale-110 transition-all duration-500"
+                      onError={(e) => {
+                        e.currentTarget.onerror = null;
+                        e.currentTarget.src = fallbackImage;
+                      }}
+                    />
+
+                    <div className="absolute inset-0 bg-gradient-to-t from-background/95 via-background/40 to-transparent" />
+
+                    <div className="absolute bottom-0 left-0 right-0 p-2.5 sm:p-3">
+                      <p className="font-semibold text-sm truncate text-white">
+                        {post.prompt_badge
+                          ? post.prompt_badge.toUpperCase()
+                          : "Remix"}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatCount(post.likes?.length || 0)} likes
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* ================= NO RESULTS ================= */}
+        {searchResults.length === 0 && promptResults.length === 0 && (
+          <div className="text-center text-muted-foreground py-6">
+            No results found.
+          </div>
+        )}
+      </>
+    )}
+  </div>
+)}
         {!searchQuery.trim() && (
           <>
           <div className="sticky md:relative top-16 md:top-auto z-40 md:z-auto bg-background/95 backdrop-blur-sm py-2 sm:py-3 px-3 sm:px-4 md:px-6 mb-6 sm:mb-8">
@@ -336,14 +546,23 @@ if (gender === "female") {
           <div className="flex items-center justify-between mb-4 gap-2">
             <h3 className="text-lg sm:text-xl font-display font-semibold min-w-0">Trending Styles</h3>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div
+            className={cn(
+              "grid grid-cols-2 sm:grid-cols-3 gap-3 transition-opacity duration-300 w-full"
+            )}
+            style={{ gridAutoRows: "120px" }}
+          >
             {remixPosts.length === 0 ? (
-              <div className="col-span-2 text-center text-muted-foreground py-8">No trending remix posts yet.</div>
+              <div className="col-span-3 text-center text-muted-foreground py-8">No trending remix posts yet.</div>
             ) : (
-              remixPosts.map((post) => (
+              remixPosts.map((post, index) => (
                 <div
                   key={post._id}
-                  className="relative rounded-2xl overflow-hidden cursor-pointer group h-40"
+                  className={cn(
+                    "relative rounded-2xl overflow-hidden cursor-pointer group",
+                    index === 0 ? "col-span-2 row-span-2" : index < 3 ? "col-span-1 row-span-2" : "col-span-1 row-span-1"
+                  )}
+                  style={{ animationDelay: `${index * 50}ms` }}
                   onClick={() => handleRemixClick(post)}
                 >
                   <img
@@ -356,6 +575,7 @@ if (gender === "female") {
                     <p className="font-semibold text-sm truncate">{post.prompt_badge || "Remix"}</p>
                     <p className="text-xs text-muted-foreground line-clamp-1">{formatCount(post.likes?.length || 0)} likes</p>
                   </div>
+                  <div className="absolute inset-0 rounded-2xl ring-2 ring-primary/0 group-hover:ring-primary/50 transition-all duration-300" />
                 </div>
               ))
             )}
@@ -419,22 +639,17 @@ if (gender === "female") {
                 key={cat.id}
                 onClick={() => setActiveCategory(cat.id)}
                 className={cn(
-                  "flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-full sm:rounded-2xl text-xs sm:text-sm font-medium transition-all whitespace-nowrap flex-shrink-0",
+                  "flex items-center gap-2 px-4 py-2 rounded-full font-medium transition-all whitespace-nowrap",
                   activeCategory === cat.id
-                    ? `bg-gradient-to-r ${cat.gradient} text-white shadow-lg`
-                    : "bg-card border border-border text-muted-foreground hover:text-foreground hover:border-primary/50"
+                    ? `bg-gradient-to-r ${cat.gradient} text-white shadow-md`
+                    : "bg-card border border-border text-foreground hover:border-primary/50"
                 )}
               >
-                <cat.icon className="w-3.5 sm:w-4 h-3.5 sm:h-4 flex-shrink-0" />
-                <span className="hidden sm:inline">{cat.label}</span>
-                <span className="sm:hidden text-xs">{cat.label === "For You" ? "For" : cat.label === "Neon Glow" ? "Neon" : cat.label === "Artistic" ? "Art" : cat.label === "Fantasy" ? "Fancy" : cat.label === "Hot Now" ? "Hot" : "Port"}</span>
+                <cat.icon className="w-4 h-4" />
+                {cat.label}
               </button>
             ))}
           </div>
-        </div>
-
-        {/* Discovery Grid (Normal Posts) */}
-        <div className="mb-8">
           <h3 className="text-lg sm:text-xl font-display font-semibold mb-4">Discover Art</h3>
           <div
             className={cn(

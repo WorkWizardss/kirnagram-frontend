@@ -30,7 +30,12 @@ const publisherItem: NavItem = {
   isPublisher: true 
 };
 
-export function Sidebar() {
+
+interface SidebarProps {
+  fromProfile?: boolean;
+}
+
+export function Sidebar({ fromProfile }: SidebarProps = {}) {
   const location = useLocation();
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
@@ -67,7 +72,19 @@ export function Sidebar() {
     return () => unsubscribe();
   }, [location]);
 
-  const isActive = (path: string) => location.pathname === path;
+  // Highlight parent menu for subpages (e.g., /ai-creator/earnings highlights AI Creator)
+  const isActive = (path: string) => {
+    if (path === "/profile") {
+      // Only active if on /profile or posts from profile
+      return location.pathname === "/profile" || (fromProfile && location.pathname === "/posts");
+    }
+    if (path === "/") {
+      // Feeds is active for / or /posts unless fromProfile is true
+      if (fromProfile && location.pathname === "/posts") return false;
+      return location.pathname === "/" || location.pathname === "/posts";
+    }
+    return location.pathname === path || location.pathname.startsWith(path + "/");
+  };
 
   return (
     <>

@@ -3,7 +3,7 @@ import { CreditsWalletPanel } from "@/components/CreditsWallet";
 
 const Credits = () => {
   return (
-    <MainLayout showRightSidebar={false}>
+    <MainLayout showRightSidebar={true}>
       <div className="max-w-4xl mx-auto pb-20 md:pb-0">
         <CreditsWalletPanel />
       </div>

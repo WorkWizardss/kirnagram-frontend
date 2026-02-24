@@ -88,7 +88,7 @@ export function Header() {
   };
 
   return (
-    <header className="sticky top-0 z-50 bg-card/95 backdrop-blur-xl border-b border-border w-full">
+    <header className="sticky top-0 z-50 glass-header w-full">
       <div className="flex items-center justify-between px-4 py-3 lg:px-6 w-full">
         {/* Logo - Only one visible at a time */}
         <Link to="/" className="flex items-center gap-2 shrink-0">

@@ -61,12 +61,14 @@ export function FeedPost({
   const [captionExpanded, setCaptionExpanded] = useState(false);
   const { isMuted, toggleMute } = useVideoSound();
   const videoRef = useRef<HTMLVideoElement>(null);
-  
+
+  // Format large numbers for likes/views
   const formatCount = (value: number) => {
     if (value < 1000) return `${value}`;
-    if (value < 1_000_000) return `${(value / 1000).toFixed(1).replace(/\.0$/, "")}k`;
-    return `${(value / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
+    if (value < 1000000) return `${(value / 1000).toFixed(1).replace(/\.0$/, "")}k`;
+    return `${(value / 1000000).toFixed(1).replace(/\.0$/, "")}M`;
   };
+
 useEffect(() => {
   const video = videoRef.current;
   if (!video) return;
@@ -76,7 +78,6 @@ useEffect(() => {
       if (!video) return;
 
       if (entry.isIntersecting && entry.intersectionRatio >= 0.6) {
-
         // Pause all other videos
         document.querySelectorAll("video").forEach((v) => {
           if (v !== video) {
@@ -87,7 +88,6 @@ useEffect(() => {
         // Restart from beginning (Reels behavior)
         video.currentTime = 0;
         video.play().catch(() => {});
-
       } else {
         video.pause();
       }
@@ -102,8 +102,9 @@ useEffect(() => {
 
 
   return (
-    <>
-      <div className="bg-background border-2 border-border/80 rounded-xl overflow-hidden shadow-sm shadow-black/10 animate-scale-in">
+    <div className="w-full flex justify-center">
+      <div className="w-full max-w-[600px] transition-all duration-300 hover:scale-[1.01]">
+        <div className="bg-gradient-to-b from-zinc-900 to-black rounded-2xl overflow-hidden shadow-lg border border-zinc-800">
         {/* Author Header */}
         <div className="flex items-center justify-between p-4">
           <button className="flex items-center gap-3 text-left" onClick={onAuthorClick}>
@@ -189,44 +190,33 @@ useEffect(() => {
 
 {mediaType === "video" ? (
   <div className="relative w-full">
-<video
-  ref={videoRef}
-  src={image}
-  className="w-full object-cover"
-  style={{ aspectRatio: ratio?.replace(":", "/") || "9 / 16" }}
-  loop
-  playsInline
-  muted={isMuted}
-  controls={false}
-  preload="metadata"
-/>
-
-
-
-
-
+    <video
+      ref={videoRef}
+      src={image}
+      className="w-full object-cover"
+      style={{ aspectRatio: ratio?.replace(":", "/") || "9 / 16" }}
+      loop
+      playsInline
+      muted={isMuted}
+      controls={false}
+      preload="metadata"
+    />
     {/* Mute / Unmute Button */}
-<button
-  onClick={toggleMute}
-  className="
-    absolute bottom-5 right-5
-    bg-black/60 backdrop-blur-md
-    text-white
-    rounded-full
-    p-3
-    transition
-    duration-200
-    active:scale-90
-  "
->
-  {isMuted ? "🔇" : "🔊"}
-</button>
-
-
-
-
-
-
+    <button
+      onClick={toggleMute}
+      className="
+        absolute bottom-5 right-5
+        bg-black/60 backdrop-blur-md
+        text-white
+        rounded-full
+        p-3
+        transition
+        duration-200
+        active:scale-90
+      "
+    >
+      {isMuted ? "🔇" : "🔊"}
+    </button>
   </div>
 ) : (
   <button className="relative w-full" onClick={onPostClick}>
@@ -299,7 +289,9 @@ useEffect(() => {
           </div>
         )}
       </div>
-
-    </>
+        </div>
+    </div>
   );
 }
+
+export default FeedPost;

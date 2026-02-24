@@ -100,7 +100,7 @@ const AddNewPrompt = () => {
 
   if (submitted) {
     return (
-      <MainLayout showRightSidebar={false}>
+      <MainLayout showRightSidebar={true}>
         <div className="flex items-center justify-center min-h-[60vh] p-4">
           <div className="text-center max-w-md">
             <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-green-500/20 flex items-center justify-center">
@@ -131,7 +131,7 @@ const AddNewPrompt = () => {
   }
 
   return (
-    <MainLayout showRightSidebar={false}>
+    <MainLayout showRightSidebar={true}>
       <div className="max-w-2xl mx-auto px-3 md:px-0 pb-24 md:pb-8 overflow-x-hidden">
         {/* Header */}
         <div className="flex items-center gap-3 mb-6">

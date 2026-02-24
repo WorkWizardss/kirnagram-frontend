@@ -106,7 +106,7 @@ const EditCreatorProfile = () => {
 
   if (loading) {
     return (
-      <MainLayout showRightSidebar={false}>
+      <MainLayout showRightSidebar={true}>
         <div className="max-w-2xl mx-auto px-3 md:px-0 pb-24 md:pb-8 flex items-center justify-center h-96">
           <p className="text-muted-foreground">Loading profile...</p>
         </div>
@@ -115,7 +115,7 @@ const EditCreatorProfile = () => {
   }
   if (!profile) {
     return (
-      <MainLayout showRightSidebar={false}>
+      <MainLayout showRightSidebar={true}>
         <div className="max-w-2xl mx-auto px-3 md:px-0 pb-24 md:pb-8 flex items-center justify-center h-96">
           <p className="text-muted-foreground">Failed to load profile</p>
         </div>
@@ -124,7 +124,7 @@ const EditCreatorProfile = () => {
   }
 
   return (
-    <MainLayout showRightSidebar={false}>
+    <MainLayout showRightSidebar={true}>
       <div className="max-w-2xl mx-auto px-3 md:px-0 pb-24 md:pb-8 overflow-x-hidden">
         {/* Header */}
         <div className="flex items-center gap-3 mb-6">

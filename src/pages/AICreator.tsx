@@ -253,7 +253,7 @@ const AICreator = () => {
   // Loading state
   if (loading) {
     return (
-      <MainLayout showRightSidebar={false}>
+      <MainLayout showRightSidebar={true}>
         <div className="flex items-center justify-center min-h-[60vh] p-4">
           <div className="text-center max-w-md">
             <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-primary/20 flex items-center justify-center animate-pulse">
@@ -270,7 +270,7 @@ const AICreator = () => {
   // Application status UI
   if (isSubmitted && !isApproved && !isRejected) {
     return (
-      <MainLayout showRightSidebar={false}>
+      <MainLayout showRightSidebar={true}>
         <div className="flex items-center justify-center min-h-[60vh] p-4">
           <div className="text-center max-w-md">
             <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-primary/20 flex items-center justify-center animate-pulse">
@@ -291,7 +291,7 @@ const AICreator = () => {
   }
   if (isRejected) {
     return (
-      <MainLayout showRightSidebar={false}>
+      <MainLayout showRightSidebar={true}>
         <div className="flex items-center justify-center min-h-[60vh] p-4">
           <div className="text-center max-w-md">
             <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-red-200 flex items-center justify-center animate-pulse">
@@ -342,7 +342,7 @@ const AICreator = () => {
       : heroBanner;
 
     return (
-      <MainLayout showRightSidebar={false}>
+      <MainLayout showRightSidebar={true}>
         <div className="max-w-4xl mx-auto pb-20 md:pb-0 overflow-x-hidden">
           {/* Cover Photo */}
           <div className="relative h-32 sm:h-44 md:h-52 rounded-none sm:rounded-2xl overflow-hidden">
@@ -465,7 +465,7 @@ const AICreator = () => {
 
   // Registration flow
   return (
-    <MainLayout showRightSidebar={false}>
+    <MainLayout showRightSidebar={true}>
       <div className="flex justify-center items-center min-h-[80vh] py-8">
         <div className="w-full max-w-2xl bg-card rounded-2xl shadow-2xl p-8 md:p-12 border border-border">
           {/* Progress */}
