@@ -14,11 +14,12 @@ type Prompt = {
   style_name: string;
   prompt_description?: string;
   ai_model?: string;
+  prompt_category?: string;
   tags?: string[];
   image_url: string;
   status: "pending" | "approved" | "rejected" | "modify";
   likes?: string[];
-  comments?: Array<{ user_id?: string; username?: string; text?: string }>;
+  comments?: Array<{ comment_id?: string; user_id?: string; username?: string; user_image?: string; text?: string; created_at?: string }>;
   views?: string[];
   remixes?: string[];
   reason?: string;
@@ -49,8 +50,23 @@ const CreatorPrompts = () => {
 
         if (!res.ok) throw new Error("Failed to fetch prompts");
         const data = await res.json();
+        console.log("Fetched prompts:", data);
+        
+        // Debug comments data structure
+        if (Array.isArray(data)) {
+          data.forEach((prompt, index) => {
+            console.log(`Prompt ${index} (${prompt.style_name}):`, {
+              comments: prompt.comments,
+              commentsType: typeof prompt.comments,
+              commentsIsArray: Array.isArray(prompt.comments),
+              commentsLength: Array.isArray(prompt.comments) ? prompt.comments.length : "N/A"
+            });
+          });
+        }
+        
         setPrompts(Array.isArray(data) ? data : []);
       } catch (e: any) {
+        console.error("Error fetching prompts:", e);
         setError(e.message || "Failed to load prompts");
         toast({
           title: "Failed to load",
@@ -77,10 +93,10 @@ const CreatorPrompts = () => {
   }, [filter, prompts, search]);
 
   const statsFor = (prompt: Prompt) => ({
-    likes: prompt.likes?.length || 0,
-    comments: prompt.comments?.length || 0,
-    views: prompt.views?.length || 0,
-    remixes: prompt.remixes?.length || 0,
+    likes: Array.isArray(prompt.likes) ? prompt.likes.length : 0,
+    comments: Array.isArray(prompt.comments) ? prompt.comments.length : 0,
+    views: Array.isArray(prompt.views) ? prompt.views.length : 0,
+    remixes: Array.isArray(prompt.remixes) ? prompt.remixes.length : 0,
   });
 
   const formatCount = (value: number) => {
@@ -96,11 +112,13 @@ const CreatorPrompts = () => {
       if (!user) return;
       try {
         const token = await user.getIdToken();
+        console.log("Recording view for prompt:", selectedPrompt._id);
         const res = await fetch(`${API_BASE}/ai-creator/prompts/${selectedPrompt._id}/view`, {
           method: "POST",
           headers: { Authorization: `Bearer ${token}` },
         });
         if (!res.ok) throw new Error("Failed to add view");
+        console.log("View recorded successfully");
         setSelectedPrompt((prev) => {
           if (!prev) return prev;
           const views = new Set(prev.views || []);
@@ -115,8 +133,8 @@ const CreatorPrompts = () => {
             return { ...prompt, views: Array.from(views) };
           })
         );
-      } catch {
-        // ignore view errors
+      } catch (e) {
+        console.error("Error recording view:", e);
       }
     };
 
@@ -135,11 +153,15 @@ const CreatorPrompts = () => {
           </button>
 
           {/* Prompt Header */}
-          <div className="relative rounded-2xl overflow-hidden mb-6">
+          <div className="relative rounded-2xl overflow-hidden mb-6 bg-muted/50">
             <img 
               src={selectedPrompt.image_url} 
               alt={selectedPrompt.style_name}
               className="w-full h-48 md:h-64 object-cover"
+              onError={(e) => {
+                console.error("Failed to load image:", selectedPrompt.image_url);
+                (e.target as HTMLImageElement).style.display = 'none';
+              }}
             />
             <div className="absolute inset-0 bg-gradient-to-t from-background to-transparent" />
             <div className="absolute bottom-4 left-4 right-4">
@@ -199,18 +221,24 @@ const CreatorPrompts = () => {
               Recent Comments
             </h2>
             <div className="space-y-3">
-              {(selectedPrompt.comments || []).map((comment, i) => (
-                <div key={i} className="flex gap-3 p-3 bg-muted/30 rounded-xl">
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-xs font-bold text-primary-foreground">
-                    {(comment.username || "U")[0]}
+              {(selectedPrompt.comments || []).length > 0 ? (
+                (selectedPrompt.comments || []).map((comment) => (
+                  <div key={comment.comment_id || Math.random()} className="flex gap-3 p-3 bg-muted/30 rounded-xl">
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-xs font-bold text-primary-foreground shrink-0">
+                      {(comment.username || "U")[0].toUpperCase()}
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium">{comment.username || "User"}</p>
+                      <p className="text-sm text-muted-foreground">{comment.text || "No text"}</p>
+                      {comment.created_at && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {new Date(comment.created_at).toLocaleDateString()}
+                        </p>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">{comment.username || "User"}</p>
-                    <p className="text-sm text-muted-foreground">{comment.text}</p>
-                  </div>
-                </div>
-              ))}
-              {(!selectedPrompt.comments || selectedPrompt.comments.length === 0) && (
+                ))
+              ) : (
                 <p className="text-xs text-muted-foreground">No comments yet.</p>
               )}
             </div>
@@ -295,7 +323,10 @@ const CreatorPrompts = () => {
               <img 
                 src={prompt.image_url} 
                 alt={prompt.style_name}
-                className="w-16 h-16 md:w-20 md:h-20 rounded-xl object-cover"
+                className="w-16 h-16 md:w-20 md:h-20 rounded-xl object-cover bg-muted"
+                onError={(e) => {
+                  console.error("Failed to load prompt image:", prompt.image_url);
+                }}
               />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
@@ -315,13 +346,13 @@ const CreatorPrompts = () => {
                 </div>
                 <div className="flex items-center gap-3 text-xs text-muted-foreground">
                   <span className="flex items-center gap-1">
-                    <Heart className="w-3 h-3" /> {prompt.likes?.length || 0}
+                    <Heart className="w-3 h-3" /> {Array.isArray(prompt.likes) ? prompt.likes.length : 0}
                   </span>
                   <span className="flex items-center gap-1">
-                    <MessageCircle className="w-3 h-3" /> {prompt.comments?.length || 0}
+                    <MessageCircle className="w-3 h-3" /> {Array.isArray(prompt.comments) ? prompt.comments.length : 0}
                   </span>
                   <span className="flex items-center gap-1">
-                    <TrendingUp className="w-3 h-3" /> {prompt.remixes?.length || 0}
+                    <TrendingUp className="w-3 h-3" /> {Array.isArray(prompt.remixes) ? prompt.remixes.length : 0}
                   </span>
                 </div>
                 {prompt.unit_id && (

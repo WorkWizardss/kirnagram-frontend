@@ -35,6 +35,10 @@ interface FeedPostProps {
   onOpenViews?: () => void;
   onShare?: () => void;
   onAddToStory?: () => void;
+  showFollowButton?: boolean;
+  followState?: "none" | "requested" | "following";
+  followLoading?: boolean;
+  onToggleFollow?: () => void;
 }
 
 export function FeedPost({
@@ -59,6 +63,10 @@ export function FeedPost({
   onOpenViews,
   onShare,
   onAddToStory,
+  showFollowButton = false,
+  followState = "none",
+  followLoading = false,
+  onToggleFollow,
 }: FeedPostProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [captionExpanded, setCaptionExpanded] = useState(false);
@@ -114,6 +122,19 @@ function getUserAvatar(user?: { image_name?: string; user_image?: string; gender
   return profileIcon;
 }
 
+  const displayUsername = author.username
+    ? author.username.startsWith("@")
+      ? author.username
+      : `@${author.username}`
+    : "@user";
+
+  const followLabel =
+    followState === "following"
+      ? "Following"
+      : followState === "requested"
+        ? "Requested"
+        : "Follow";
+
 
   // Default Add to Story handler
   async function handleAddToStory() {
@@ -153,7 +174,7 @@ function getUserAvatar(user?: { image_name?: string; user_image?: string; gender
         <div className="rounded-2xl overflow-hidden shadow-lg border bg-white border-zinc-200 text-zinc-800 dark:bg-gradient-to-b dark:from-zinc-900 dark:to-black dark:border-zinc-800 dark:text-white">
         {/* Author Header */}
         <div className="flex items-center justify-between p-4">
-          <button className="flex items-center gap-3 text-left" onClick={onAuthorClick}>
+          <button className="flex items-center gap-3 text-left min-w-0" onClick={onAuthorClick}>
             <div className="story-ring">
               <img
                 src={author.avatar}
@@ -161,14 +182,17 @@ function getUserAvatar(user?: { image_name?: string; user_image?: string; gender
                 className="w-10 h-10 rounded-full object-cover"
               />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-semibold text-sm text-zinc-800 dark:text-white">{author.name}</span>
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="font-semibold text-[13px] sm:text-sm text-zinc-800 dark:text-white truncate max-w-[180px] sm:max-w-[240px]">
+                  {author.name}
+                </span>
                 {author.isVerified && (
-                  <BadgeCheck className="w-4 h-4 text-primary fill-primary/20" />
+                  <BadgeCheck className="w-3.5 h-3.5 text-primary fill-primary/20 shrink-0" />
                 )}
               </div>
-              <div className="flex items-center gap-2 text-xs text-zinc-500 dark:text-muted-foreground">
+              <div className="flex items-center gap-2 text-[11px] text-zinc-500 dark:text-muted-foreground min-w-0">
+                <span className="truncate">{displayUsername}</span>
                 {author.isPro && <span className="badge-pro text-[10px]">PRO</span>}
                 {author.earnings && (
                   <span className="flex items-center gap-1 text-green-600 dark:text-green-400">
@@ -179,7 +203,22 @@ function getUserAvatar(user?: { image_name?: string; user_image?: string; gender
               </div>
             </div>
           </button>
-          <div className="relative">
+          <div className="relative flex items-center gap-2">
+            {showFollowButton && (
+              <button
+                type="button"
+                onClick={onToggleFollow}
+                disabled={followLoading}
+                className={cn(
+                  "h-8 min-w-[72px] px-3 rounded-md text-xs font-semibold transition-colors disabled:opacity-60 disabled:cursor-not-allowed",
+                  followState === "following" || followState === "requested"
+                    ? "border border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-200 bg-transparent"
+                    : "bg-zinc-100 text-zinc-900 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-white dark:hover:bg-zinc-700"
+                )}
+              >
+                {followLoading ? "..." : followLabel}
+              </button>
+            )}
             <button
               className="p-2 hover:bg-zinc-100 dark:hover:bg-muted rounded-lg transition-colors"
               onClick={() => setMenuOpen((prev) => !prev)}

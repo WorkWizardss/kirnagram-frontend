@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -25,13 +25,34 @@ type PromptDetail = {
   tags?: string[];
 };
 
-const qualityOptions = {
-  chatgpt: ["low", "medium", "high"],
-  gemini: ["fast", "standard", "ultra"],
-} as const;
+const uiQualityOptions = ["low", "medium", "high"] as const;
+
+type RemixSourceState = {
+  returnTo?: string;
+  fromPostId?: string;
+  returnScrollY?: number;
+};
+
+const mapQualityForModel = (
+  model: "chatgpt" | "gemini",
+  uiQuality: string
+) => {
+  const normalized = (uiQuality || "").toLowerCase();
+  if (model === "gemini") {
+    if (normalized === "low") return "fast";
+    if (normalized === "high") return "ultra";
+    return "standard";
+  }
+
+  if (normalized === "fast") return "low";
+  if (normalized === "ultra") return "high";
+  if (normalized === "standard") return "medium";
+  return normalized || "medium";
+};
 
 const Remix = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { promptId } = useParams();
   const [prompt, setPrompt] = useState<PromptDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -45,6 +66,59 @@ const Remix = () => {
   const [remixId, setRemixId] = useState<string | null>(null);
   const [resolvedModel, setResolvedModel] = useState<"chatgpt" | "gemini">("chatgpt");
   const [downloading, setDownloading] = useState(false);
+  const sourceState = (location.state || null) as RemixSourceState | null;
+
+  const handleBack = () => {
+    if (sourceState?.returnTo) {
+      navigate(sourceState.returnTo, {
+        replace: true,
+        state: {
+          fromRemix: true,
+          focusPostId: sourceState.fromPostId,
+          restoreScrollY: sourceState.returnScrollY,
+        },
+      });
+      return;
+    }
+
+    if (window.history.length > 1) {
+      navigate(-1);
+      return;
+    }
+
+    navigate("/");
+  };
+
+  const fetchWithFreshToken = async (url: string, init?: RequestInit) => {
+    const user = auth.currentUser;
+    if (!user) {
+      throw new Error("Not logged in");
+    }
+
+    let token = await user.getIdToken();
+    let response = await fetch(url, {
+      ...init,
+      headers: {
+        ...(init?.headers || {}),
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (response.status !== 401) {
+      return response;
+    }
+
+    token = await user.getIdToken(true);
+    response = await fetch(url, {
+      ...init,
+      headers: {
+        ...(init?.headers || {}),
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    return response;
+  };
 
   useEffect(() => {
     const loadPrompt = async () => {
@@ -53,19 +127,14 @@ const Remix = () => {
         return;
       }
       try {
-        const user = auth.currentUser;
-        if (!user) throw new Error("Not logged in");
-        const token = await user.getIdToken();
-        const res = await fetch(`${API_BASE}/ai-creator/prompts/${promptId}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const res = await fetchWithFreshToken(`${API_BASE}/ai-creator/prompts/${promptId}`);
         if (!res.ok) throw new Error("Failed to load prompt");
         const data = await res.json();
         setPrompt(data);
         const aiModel = (data.ai_model || "chatgpt").toLowerCase();
         const resolved = aiModel === "gemini" || aiModel === "both" ? "gemini" : "chatgpt";
         setResolvedModel(resolved);
-        setQuality(resolved === "gemini" ? "standard" : "medium");
+        setQuality("medium");
       } catch (error) {
         toast({
           title: "Remix",
@@ -85,7 +154,8 @@ const Remix = () => {
       try {
         const summary = await fetchCreditsSummary();
         const rates = summary?.burn_rates || {};
-        const rate = rates?.[resolvedModel]?.[quality];
+        const backendQuality = mapQualityForModel(resolvedModel, quality);
+        const rate = rates?.[resolvedModel]?.[backendQuality];
         if (typeof rate === "number") setBurnCost(rate);
         else setBurnCost(null);
       } catch {
@@ -132,37 +202,17 @@ const Remix = () => {
       if (!user) throw new Error("Not logged in");
       const token = await user.getIdToken();
 
+      // Simple prompt like ChatGPT/Gemini app: just the style + description
       const promptText = [
-        "You are an advanced AI image generation model.\n\n",
-        "Use the uploaded user image as the BASE reference.\n",
-        "Do NOT return the original image.\n",
-        "Generate a NEW, visually distinct image inspired by the description below.\n\n",
-        `STYLE:\n${promptInfo.style}\n\n`,
-        `DESCRIPTION:\n${promptInfo.description}\n\n`,
-        "STRICT RULES:\n",
-        "- Preserve the identity, face structure, pose, and main subject from the uploaded image\n",
-        "- Apply the given style strongly and clearly\n",
-        "- Change lighting, colors, background, and artistic rendering\n",
-        "- Enhance details and visual quality\n",
-        "- Do NOT copy the original image pixel-by-pixel\n",
-        "- Do NOT add any text, watermark, logo, or signature\n",
-        "- Do NOT blur or distort the face\n",
-        "- The result must clearly look AI-generated, not a photo copy\n\n",
-        "IMAGE SETTINGS:\n",
-        `- Aspect Ratio: ${ratio}\n`,
-        "- High quality\n",
-        "- Sharp focus\n",
-        "- Cinematic lighting\n",
-        "- Clean background\n\n",
-        "Output:\n",
-        "Return ONLY the final generated image.\n",
-        "Do not return text or explanations.",
-      ].join("");
+        promptInfo.style ? `${promptInfo.style}` : "",
+        promptInfo.description ? `. ${promptInfo.description}` : "",
+      ].join("").trim();
 
       const formData = new FormData();
+      const backendQuality = mapQualityForModel(resolvedModel, quality);
       formData.append("prompt_id", promptId);
       formData.append("ratio", ratio);
-      formData.append("quality", quality);
+      formData.append("quality", backendQuality);
       formData.append("model", resolvedModel);
       formData.append("prompt_text", promptText);
       formData.append("image", uploadedFile);
@@ -192,9 +242,8 @@ const Remix = () => {
       setRemixId(data.remix_id || null);
 
       // 🔥 REFRESH PROMPT DATA (IMPORTANT)
-      const updatedPromptRes = await fetch(
-        `${API_BASE}/ai-creator/prompts/${promptId}`,
-        { headers: { Authorization: `Bearer ${token}` } }
+      const updatedPromptRes = await fetchWithFreshToken(
+        `${API_BASE}/ai-creator/prompts/${promptId}`
       );
       if (updatedPromptRes.ok) {
         const updatedPrompt = await updatedPromptRes.json();
@@ -313,18 +362,14 @@ const Remix = () => {
 
   return (
     <MainLayout showRightSidebar={true}>
-      <div className="w-full flex justify-start max-w-4xl mx-auto pt-4 pb-2">
-        <Button variant="ghost" onClick={() => navigate(-1)}>
-          ← Back
-        </Button>
-      </div>
       <div className="max-w-4xl mx-auto pb-24 md:pb-8 space-y-6">
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2 pt-4">
           <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Remix Studio</p>
-          <h1 className="text-2xl md:text-3xl font-display font-bold">{promptInfo.style}</h1>
-          {prompt?.unit_id && (
-            <p className="text-sm text-muted-foreground">Prompt ID: {prompt.unit_id}</p>
-          )}
+          <div className="w-full flex justify-start">
+            <Button variant="ghost" onClick={handleBack}>
+              ← Back
+            </Button>
+          </div>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
@@ -431,7 +476,7 @@ const Remix = () => {
               <div className="space-y-3">
                 <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Quality</p>
                 <div className="grid grid-cols-3 gap-2">
-                  {qualityOptions[resolvedModel].map((value) => (
+                  {uiQualityOptions.map((value) => (
                     <button
                       key={value}
                       type="button"

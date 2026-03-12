@@ -13,9 +13,11 @@ import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import ForgotPassword from "./pages/ForgotPassword";
 import Explore from "./pages/Explore";
+import Leaderboard from "./pages/Leaderboard";
 import DiscoverView from "./pages/DiscoverView";
 import Profile from "./pages/Profile";
 import UserProfile from "./pages/UserProfile";
+import UsernameRoute from "./pages/UsernameRoute";
 import FollowList from "./pages/FollowList";
 import EditProfile from "./pages/EditProfile";
 import Settings from "./pages/Settings";
@@ -27,7 +29,11 @@ import CreatorEarnings from "./pages/CreatorEarnings";
 import CreatorPrompts from "./pages/CreatorPrompts";
 import AddNewPrompt from "./pages/AddNewPrompt";
 import EditCreatorProfile from "./pages/EditCreatorProfile";
-import BecomePublisher from "./pages/BecomePublisher";
+import PublisherLanding from "./pages/PublisherLanding";
+import PublisherPackages from "./pages/PublisherPackages";
+import PublisherApply from "./pages/PublisherApply";
+import PublisherAdsDashboard from "./pages/PublisherAdsDashboard";
+import PublisherBusinessProfile from "./pages/PublisherBusinessProfile";
 import NotFound from "./pages/NotFound";
 import HelpCenter from "./pages/HelpCenter";
 import AddPostPage from "./pages/AddPostPage";
@@ -39,6 +45,7 @@ import Remix from "./pages/Remix";
 import RemixViewer from "./pages/RemixViewer";
 import ChangePassword from "./pages/ChangePassword";
 import { VideoSoundProvider } from "@/context/VideoSoundContext";
+import ActivityTracker from "@/components/ActivityTracker";
 import "./glass.css";
 
 const queryClient = new QueryClient();
@@ -100,14 +107,16 @@ const App = () => {
             {showSplash && <SplashScreen />}
             {!showSplash && (
               <BrowserRouter>
+                <ActivityTracker />
                 <Routes>
                   <Route path="/" element={<PublicRoute><Login /></PublicRoute>} />
                   <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
                   <Route path="/signup" element={<PublicRoute><Signup /></PublicRoute>} />
-                  <Route path="/forgot-password" element={<PublicRoute><ForgotPassword /></PublicRoute>} />
+                  <Route path="/forgot-password" element={<ForgotPassword />} />
 
                   <Route path="/home" element={<PrivateRoute><Index /></PrivateRoute>} />
                   <Route path="/explore" element={<PrivateRoute><Explore /></PrivateRoute>} />
+                  <Route path="/leaderboard" element={<PrivateRoute><Leaderboard /></PrivateRoute>} />
                   <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
                   <Route path="/user/:userId" element={<PrivateRoute><UserProfile /></PrivateRoute>} />
                   <Route path="/user/:userId/:tab" element={<PrivateRoute><FollowList /></PrivateRoute>} />
@@ -121,7 +130,12 @@ const App = () => {
                   <Route path="/ai-creator/edit-profile" element={<PrivateRoute><EditCreatorProfile /></PrivateRoute>} />
                   <Route path="/privacy" element={<PrivateRoute><Privacy /></PrivateRoute>} />
                   <Route path="/terms" element={<PrivateRoute><Terms /></PrivateRoute>} />
-                  <Route path="/become-publisher" element={<PrivateRoute><BecomePublisher /></PrivateRoute>} />
+                  <Route path="/become-publisher" element={<PrivateRoute><PublisherLanding /></PrivateRoute>} />
+                  <Route path="/become-publisher/packages" element={<PrivateRoute><PublisherPackages /></PrivateRoute>} />
+                  <Route path="/become-publisher/apply" element={<PrivateRoute><PublisherApply /></PrivateRoute>} />
+                  <Route path="/become-publisher/application" element={<Navigate to="/become-publisher/apply" replace />} />
+                  <Route path="/publisher/dashboard" element={<PrivateRoute><PublisherAdsDashboard /></PrivateRoute>} />
+                  <Route path="/publisher/business-profile/:publisherId" element={<PrivateRoute><PublisherBusinessProfile /></PrivateRoute>} />
                   <Route path="/create" element={<PrivateRoute><AddPostPage /></PrivateRoute>} />
                   <Route path="/credits" element={<PrivateRoute><Credits /></PrivateRoute>} />
                   <Route path="/HelpCenter" element={<PrivateRoute><HelpCenter /></PrivateRoute>} />
@@ -150,6 +164,8 @@ const App = () => {
                   <Route path="/story/view/:storyId" element={<PrivateRoute><StoryView /></PrivateRoute>} />
                   <Route path="/change-password" element={<PrivateRoute><ChangePassword /></PrivateRoute>} />
                   <Route path="/two-factor" element={<PrivateRoute><TwoFactor /></PrivateRoute>} />
+                  {/* Username route (Instagram-style): must be before catch-all */}
+                  <Route path="/:username" element={<PrivateRoute><UsernameRoute /></PrivateRoute>} />
                   {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                   <Route path="*" element={<NotFound />} />
                 </Routes>

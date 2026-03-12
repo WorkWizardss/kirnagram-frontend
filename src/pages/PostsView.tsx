@@ -70,7 +70,9 @@ const PostsView = () => {
   const [activePostId, setActivePostId] = useState<string | null>(null);
   const [showLikes, setShowLikes] = useState(false);
   const [showComments, setShowComments] = useState(false);
+  const [showViews, setShowViews] = useState(false);
   const [likeUsers, setLikeUsers] = useState<any[]>([]);
+  const [viewUsers, setViewUsers] = useState<any[]>([]);
   const [comments, setComments] = useState<Comment[]>([]);
   const [commentInput, setCommentInput] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -364,6 +366,24 @@ useEffect(() => {
     }
   };
 
+  const openViews = async (postId: string) => {
+    const currentUser = auth.currentUser;
+    if (!currentUser) return;
+    setActivePostId(postId);
+    setShowViews(true);
+    try {
+      const token = await currentUser.getIdToken();
+      const res = await fetch(`${API_BASE}/posts/views/${postId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error("Failed to load views");
+      const data = await res.json();
+      setViewUsers(data.views || []);
+    } catch {
+      setViewUsers([]);
+    }
+  };
+
   const openComments = async (postId: string) => {
     setActivePostId(postId);
     setShowComments(true);
@@ -371,8 +391,10 @@ useEffect(() => {
       const res = await fetch(`${API_BASE}/posts/comments/${postId}`);
       if (!res.ok) throw new Error("Failed to load comments");
       const data = await res.json();
-      setComments(data.comments || []);
+      console.log("Loaded comments:", data.comments);
+      setComments(Array.isArray(data.comments) ? data.comments : []);
     } catch (error) {
+      console.error("Error loading comments:", error);
       setComments([]);
     }
   };
@@ -746,24 +768,30 @@ useEffect(() => {
                               event.stopPropagation();
                               openLikes(post._id);
                             }}>
-                              {post.likes?.length ?? 0}
+                              {Array.isArray(post.likes) ? post.likes.length : 0}
                             </span>
                           </button>
                           <button
                             className="flex items-center gap-2 text-foreground"
+                            onClick={() => openComments(post._id)}
                           >
                             <MessageCircle className="w-5 h-5" />
-                            <span onClick={(event) => {
-                              event.stopPropagation();
-                              openComments(post._id);
-                            }}>
-                              {post.comments?.length ?? 0}
-                            </span>
+                            <span>{Array.isArray(post.comments) ? post.comments.length : 0}</span>
                           </button>
-                          <span className="flex items-center gap-1 text-foreground">
-                            <Eye className="w-5 h-5" />
-                            {post.views?.length ?? 0}
-                          </span>
+                          {currentUserId === post.user_id ? (
+                            <button
+                              className="flex items-center gap-1 text-foreground hover:text-primary transition-colors"
+                              onClick={() => openViews(post._id)}
+                            >
+                              <Eye className="w-5 h-5" />
+                              {Array.isArray(post.views) ? post.views.length : 0}
+                            </button>
+                          ) : (
+                            <span className="flex items-center gap-1 text-foreground">
+                              <Eye className="w-5 h-5" />
+                              {Array.isArray(post.views) ? post.views.length : 0}
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -807,39 +835,78 @@ useEffect(() => {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={showViews} onOpenChange={setShowViews}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Views</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 max-h-[50vh] overflow-y-auto">
+            {viewUsers.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No views yet.</p>
+            ) : (
+              viewUsers.map((user) => {
+                const uid = user.firebase_uid || user.user_id;
+                return (
+                  <button
+                    key={uid}
+                    className="flex w-full items-center gap-3 text-left"
+                    onClick={() => openProfile(uid)}
+                  >
+                    <img
+                      src={getUserAvatar(user)}
+                      alt={user.username || "User"}
+                      className="w-10 h-10 rounded-full object-cover"
+                    />
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate">{user.username || user.full_name || "User"}</p>
+                    </div>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={showComments} onOpenChange={setShowComments}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Comments</DialogTitle>
+            <DialogTitle>Comments ({comments.length})</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 max-h-[50vh] overflow-y-auto">
-            {comments.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No comments yet.</p>
-            ) : (
-              comments.map((comment) => (
+            {Array.isArray(comments) && comments.length > 0 ? (
+              comments.map((comment, index) => (
                 <button
-                  key={comment.comment_id}
-                  className="flex w-full items-start gap-3 text-left"
-                  onClick={() => openProfile(comment.user_id)}
+                  key={comment?.comment_id || `comment-${index}`}
+                  className="flex w-full items-start gap-3 text-left hover:bg-muted/30 p-2 rounded transition-colors"
+                  onClick={() => openProfile(comment?.user_id)}
                 >
                   <img
-                    src={getUserAvatar({ user_image: comment.user_image })}
-                    alt={comment.username || "User"}
-                    className="w-9 h-9 rounded-full object-cover"
+                    src={getUserAvatar({ user_image: comment?.user_image })}
+                    alt={comment?.username || "User"}
+                    className="w-9 h-9 rounded-full object-cover shrink-0"
                   />
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium truncate">{comment.username || "User"}</p>
-                    <p className="text-sm text-muted-foreground break-words">{comment.text}</p>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium truncate">{comment?.username || "User"}</p>
+                    <p className="text-sm text-muted-foreground break-words">{comment?.text || "No text"}</p>
+                    {comment?.created_at && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {new Date(comment.created_at).toLocaleDateString()}
+                      </p>
+                    )}
                   </div>
                 </button>
               ))
+            ) : (
+              <p className="text-sm text-muted-foreground">No comments yet.</p>
             )}
           </div>
-          <div className="flex items-center gap-2 pt-2">
+          <div className="flex items-center gap-2 pt-2 border-t">
             <Input
               placeholder="Add a comment..."
               value={commentInput}
               onChange={(event) => setCommentInput(event.target.value)}
+              onKeyDown={(event) => { if (event.key === "Enter" && !isSubmitting) handleAddComment(); }}
             />
             <Button onClick={handleAddComment} disabled={isSubmitting} size="icon">
               <Send className="w-4 h-4" />

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ChevronLeft, ChevronRight, Heart, Eye, MessageCircle, X, Trash2, Plus, Loader2 } from 'lucide-react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { auth } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import maleIcon from "@/assets/maleicon.png";
@@ -36,6 +36,7 @@ interface StoryUser {
 
 const StoryView: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { storyId } = useParams<{ storyId?: string }>();
   const { toast } = useToast();
   const [storyUsers, setStoryUsers] = useState<StoryUser[]>([]);
@@ -61,6 +62,17 @@ const StoryView: React.FC = () => {
 
   const currentUser = storyUsers[currentUserIdx];
   const currentStory = currentUser?.stories[currentStoryIdx];
+
+  // Debug logging
+  useEffect(() => {
+    if (currentUser) {
+      console.log('📱 Current User:', {
+        user_id: currentUser.user_id,
+        username: currentUser.username,
+        stories_count: currentUser.stories?.length
+      });
+    }
+  }, [currentUser]);
 
   // Helper function to check if image URL is valid
   const isValidRemoteImage = (url?: string) => {
@@ -106,6 +118,74 @@ const StoryView: React.FC = () => {
         }
         const token = await user.getIdToken();
         
+        // Check if we're viewing a specific user's story (from profile)
+        const targetUserId = (location.state as any)?.userId;
+        
+        if (targetUserId) {
+          // Fetch the specific user's stories with full details
+          try {
+            const userStoriesResponse = await fetch(`http://localhost:8000/stories/user/${targetUserId}/stories`, {
+              headers: { 'Authorization': `Bearer ${token}` },
+            });
+            
+            if (userStoriesResponse.ok) {
+              const targetUserData = await userStoriesResponse.json();
+              
+              if (targetUserData.stories && targetUserData.stories.length > 0) {
+                // Fetch the full feed to include other users' stories
+                const feedResponse = await fetch('http://localhost:8000/stories/feed', {
+                  headers: { 'Authorization': `Bearer ${token}` },
+                });
+                
+                let allFeedData: any[] = [];
+                if (feedResponse.ok) {
+                  allFeedData = await feedResponse.json();
+                }
+                
+                // Remove target user from feed if present (to avoid duplicates)
+                const otherStories = allFeedData.filter((u: any) => u.user_id !== targetUserId);
+                
+                // Place target user's stories at the front
+                setStoryUsers([targetUserData, ...otherStories]);
+                
+                // Find the specific story if storyId provided
+                if (storyId) {
+                  const storyIdx = targetUserData.stories.findIndex((s: any) => s.story_id === storyId);
+                  if (storyIdx >= 0) {
+                    setCurrentUserIdx(0);
+                    setCurrentStoryIdx(storyIdx);
+                    setIsOwnStory(targetUserId === user.uid);
+                    setIsLiked(targetUserData.stories[storyIdx].liked_by_user || false);
+                    setLoading(false);
+                    return;
+                  }
+                }
+                
+                // No specific storyId, just show first story of target user
+                setCurrentUserIdx(0);
+                setCurrentStoryIdx(0);
+                setIsOwnStory(targetUserId === user.uid);
+                setIsLiked(targetUserData.stories[0]?.liked_by_user || false);
+                setLoading(false);
+                return;
+              }
+            } else if (userStoriesResponse.status === 403) {
+              // Permission denied
+              toast({
+                title: "Cannot view stories",
+                description: "You don't have permission to view this user's stories",
+                variant: "destructive"
+              });
+              navigate('/');
+              setLoading(false);
+              return;
+            }
+          } catch (error) {
+            console.error('Error fetching user stories:', error);
+          }
+        }
+        
+        // Fetch the main stories feed (default behavior)
         const response = await fetch('http://localhost:8000/stories/feed', {
           headers: { 'Authorization': `Bearer ${token}` },
         });
@@ -113,6 +193,7 @@ const StoryView: React.FC = () => {
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
           console.error(`Feed fetch failed ${response.status}:`, errorData);
+          setLoading(false);
           return;
         }
         
@@ -133,18 +214,40 @@ const StoryView: React.FC = () => {
               }
             }
           }
+          
+          // Story ID not found in feed
+          console.warn(`Story ${storyId} not found in feed`);
+          toast({
+            title: "Story not found",
+            description: "This story may have expired or been deleted",
+            variant: "destructive"
+          });
         }
         
-        setIsLiked(data[0]?.stories[0]?.liked_by_user || false);
+        // Default to first story
+        if (data.length > 0) {
+          setIsLiked(data[0]?.stories[0]?.liked_by_user || false);
+          setIsOwnStory(data[0].user_id === user.uid);
+        } else {
+          // No stories available
+          navigate('/');
+        }
+        
       } catch (error) {
         console.error('Error fetching stories:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load stories",
+          variant: "destructive"
+        });
+        navigate('/');
       } finally {
         setLoading(false);
       }
     };
 
     fetchStories();
-  }, [storyId]);
+  }, [storyId, location.state, navigate, toast]);
 
   // Track story view
   useEffect(() => {
@@ -570,10 +673,17 @@ return (
         >
           <img
             src={getProfileImage()}
-            alt={currentUser?.username}
-            className="w-10 h-10 rounded-full border-2 border-white"
+            alt={currentUser?.username || 'User'}
+            className="w-10 h-10 rounded-full border-2 border-white object-cover"
           />
-          <p className="text-white font-semibold text-sm">{currentUser?.username}</p>
+          <div className="flex flex-col">
+            <p className="text-white font-semibold text-sm leading-tight">
+              {currentUser?.username || 'Unknown User'}
+            </p>
+            <p className="text-white/80 text-xs leading-tight">
+              {timeString}
+            </p>
+          </div>
         </div>
 
         <button

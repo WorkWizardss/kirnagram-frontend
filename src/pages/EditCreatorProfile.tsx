@@ -158,7 +158,40 @@ const EditCreatorProfile = () => {
             />
           </div>
 
-         
+          {/* Website Links */}
+          <div className="bg-card border border-border rounded-2xl p-4">
+            <h3 className="text-sm font-medium mb-4">Website</h3>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Website Name</label>
+                <div className="relative">
+                  <FileText className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <input 
+                    type="text"
+                    name="websiteName"
+                    placeholder="e.g., My Portfolio, My Blog"
+                    value={form.websiteName}
+                    onChange={handleChange}
+                    className="w-full pl-12 pr-4 py-3 bg-muted/50 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" 
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Website URL</label>
+                <div className="relative">
+                  <LinkIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-primary" />
+                  <input 
+                    type="url"
+                    name="website"
+                    placeholder="https://yourwebsite.com"
+                    value={form.website}
+                    onChange={handleChange}
+                    className="w-full pl-12 pr-4 py-3 bg-muted/50 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" 
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
 
           {/* Social Links */}
           <div className="bg-card border border-border rounded-2xl p-4">

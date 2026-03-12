@@ -29,6 +29,8 @@ import { useToast } from "@/hooks/use-toast";
 
 const API_BASE = "http://127.0.0.1:8000";
 
+type UsernameStatus = "idle" | "checking" | "available" | "taken" | "invalid" | "error";
+
 const EditProfile = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -60,7 +62,11 @@ const EditProfile = () => {
   const [detectingLocation, setDetectingLocation] = useState(false);
   const cropCanvasRef = useRef<HTMLCanvasElement>(null);
   const genderDropdownRef = useRef<HTMLDivElement>(null);
+  const usernameRequestIdRef = useRef(0);
+  const initialUsernameRef = useRef("");
   const [genderOpen, setGenderOpen] = useState(false);
+  const [usernameStatus, setUsernameStatus] = useState<UsernameStatus>("idle");
+  const [usernameMessage, setUsernameMessage] = useState("");
 
   const [formData, setFormData] = useState({
     name: "",
@@ -115,6 +121,7 @@ const EditProfile = () => {
           bio: data.bio || "",
           gender: data.gender || "",
         });
+        initialUsernameRef.current = (data.username || "").trim();
 
         // Set avatar with fallback logic
         const avatarUrl = data.image_name && 
@@ -153,6 +160,11 @@ const EditProfile = () => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
 
+    if (name === "username") {
+      setUsernameStatus("idle");
+      setUsernameMessage("");
+    }
+
     // If the user switches gender and there is no uploaded image, adjust fallback
     if (name === "gender" && (!avatarPreview || avatarPreview === getGenderFallback(formData.gender))) {
       setAvatarPreview(getGenderFallback(value));
@@ -167,6 +179,93 @@ const EditProfile = () => {
     }
     setGenderOpen(false);
   };
+
+  const getUsernameUi = () => {
+    if (usernameStatus === "taken" || usernameStatus === "error") {
+      return {
+        inputClassName: "border-red-500 focus:ring-red-500/50 focus:border-red-500",
+        helperClassName: "text-red-500",
+      };
+    }
+
+    if (usernameStatus === "available") {
+      return {
+        inputClassName: "border-orange-500 focus:ring-orange-500/50 focus:border-orange-500",
+        helperClassName: "text-orange-500",
+      };
+    }
+
+    return {
+      inputClassName: "",
+      helperClassName: "text-muted-foreground",
+    };
+  };
+
+  useEffect(() => {
+    const raw = formData.username || "";
+    const candidate = raw.trim();
+
+    if (!candidate) {
+      setUsernameStatus("idle");
+      setUsernameMessage("");
+      return;
+    }
+
+    if (candidate.toLowerCase() === initialUsernameRef.current.toLowerCase()) {
+      setUsernameStatus("available");
+      setUsernameMessage("This is your current username");
+      return;
+    }
+
+    const requestId = ++usernameRequestIdRef.current;
+    setUsernameStatus("checking");
+    setUsernameMessage("Checking availability...");
+
+    const timer = setTimeout(async () => {
+      const user = auth.currentUser;
+      if (!user) {
+        setUsernameStatus("error");
+        setUsernameMessage("Please login again");
+        return;
+      }
+
+      try {
+        const token = await user.getIdToken();
+        const res = await fetch(
+          `${API_BASE}/profile/username-availability?username=${encodeURIComponent(candidate)}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        if (requestId !== usernameRequestIdRef.current) return;
+
+        if (!res.ok) {
+          setUsernameStatus("error");
+          setUsernameMessage("Unable to verify username");
+          return;
+        }
+
+        const data = await res.json();
+        if (data.available) {
+          setUsernameStatus("available");
+          setUsernameMessage("Username is available");
+        } else {
+          setUsernameStatus("taken");
+          setUsernameMessage(data.reason || "Username already used");
+        }
+      } catch (error) {
+        if (requestId !== usernameRequestIdRef.current) return;
+        console.error("Username availability check failed", error);
+        setUsernameStatus("error");
+        setUsernameMessage("Unable to verify username");
+      }
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [formData.username]);
 
   // 🔹 UPLOAD IMAGE (R2)
   const uploadImage = async (
@@ -185,6 +284,8 @@ const EditProfile = () => {
     form.append("file", file);
 
     try {
+      console.log(`📤 Uploading ${type}:`, { filename: file.name, size: file.size });
+      
       const res = await fetch(`${API_BASE}/upload/${type}`, {
         method: "POST",
         headers: {
@@ -195,19 +296,21 @@ const EditProfile = () => {
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        console.error("Upload failed:", err);
+        console.error(`❌ Upload failed:`, { status: res.status, error: err });
         toast({ title: "Upload failed", description: err.detail || "Server error", variant: "destructive" });
         return null;
       }
 
       const data = await res.json();
+      console.log(`✅ Upload successful:`, { image_url: data.image_url });
+      
       if (!data?.image_url) {
         toast({ title: "Upload failed", description: "Invalid server response", variant: "destructive" });
         return null;
       }
       return data.image_url as string;
     } catch (error) {
-      console.error("Upload error:", error);
+      console.error(`❌ Upload error:`, error);
       toast({ title: "Upload error", description: String(error), variant: "destructive" });
       return null;
     }
@@ -423,7 +526,9 @@ const EditProfile = () => {
                 ? { image_name: uploadedUrl, skip_notification: true }
                 : { cover_image: uploadedUrl, skip_notification: true };
               
-              await fetch(`${API_BASE}/profile/update`, {
+              console.log(`📤 Saving ${cropType} to database:`, updatePayload);
+              
+              const updateRes = await fetch(`${API_BASE}/profile/update`, {
                 method: "PUT",
                 headers: {
                   "Content-Type": "application/json",
@@ -431,9 +536,21 @@ const EditProfile = () => {
                 },
                 body: JSON.stringify(updatePayload),
               });
+              
+              if (updateRes.ok) {
+                console.log(`✅ ${cropType} saved to database successfully`);
+              } else {
+                const errorData = await updateRes.json().catch(() => ({}));
+                console.error(`❌ Failed to save ${cropType} to database:`, {
+                  status: updateRes.status,
+                  statusText: updateRes.statusText,
+                  error: errorData
+                });
+                toast({ title: `Image uploaded but failed to save to profile`, description: errorData.detail || "Database save failed", variant: "destructive" });
+              }
             } catch (error) {
-              console.error("Failed to save image to database:", error);
-              toast({ title: "Image uploaded but failed to save to profile", variant: "destructive" });
+              console.error("❌ Error saving image to database:", error);
+              toast({ title: "Image uploaded but failed to save to profile", description: String(error), variant: "destructive" });
             }
           }
         } else {
@@ -536,10 +653,28 @@ const EditProfile = () => {
     setSaving(true);
     const token = await user.getIdToken();
 
+    const trimmedUsername = (formData.username || "").trim();
+    if (!trimmedUsername) {
+      setSaving(false);
+      setUsernameStatus("error");
+      setUsernameMessage("Username is required");
+      return;
+    }
+
+    if (usernameStatus === "checking") {
+      setSaving(false);
+      return;
+    }
+
+    if (usernameStatus === "taken" || usernameStatus === "error") {
+      setSaving(false);
+      return;
+    }
+
     try {
       // Build update payload - include image URLs if they exist
       const updatePayload: any = {
-        username: formData.username,
+        username: trimmedUsername,
         bio: formData.bio,
         location: formData.location,
         website: formData.website,
@@ -583,9 +718,17 @@ const EditProfile = () => {
         });
         navigate("/profile");
       } else {
+        const errorData = await response.json().catch(() => ({}));
+        if (response.status === 409) {
+          setUsernameStatus("taken");
+          setUsernameMessage(errorData.detail || "Username already used");
+        } else if (response.status === 400 && errorData.detail?.toLowerCase().includes("username")) {
+          setUsernameStatus("error");
+          setUsernameMessage(errorData.detail || "Invalid username format");
+        }
         toast({
           title: "Error",
-          description: "Failed to update profile",
+          description: errorData.detail || "Failed to update profile",
           variant: "destructive",
         });
       }
@@ -738,10 +881,11 @@ const EditProfile = () => {
             <button
               type="submit"
               form="edit-profile-form"
-              className="ml-auto px-4 py-2 rounded-xl bg-gradient-to-r from-primary to-primary/70 text-primary-foreground font-semibold flex items-center gap-2 shadow-lg hover:scale-[1.02] transition-all"
+              disabled={saving || usernameStatus === "checking" || usernameStatus === "taken" || usernameStatus === "error" || !formData.username?.trim()}
+              className="ml-auto px-4 py-2 rounded-xl bg-gradient-to-r from-primary to-primary/70 text-primary-foreground font-semibold flex items-center gap-2 shadow-lg hover:scale-[1.02] transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round"/></svg>
-              Save
+              {saving ? "Saving..." : "Save"}
             </button>
           </div>
 
@@ -1075,14 +1219,22 @@ const EditProfile = () => {
             value={formData.name}
             disabled
           />
-          <Input
-            label="Username"
-            name="username"
-            icon={<AtSign className="w-5 h-5" />}
-            value={formData.username}
-            onChange={handleChange}
-            placeholder="Enter your username"
-          />
+          {(() => {
+            const usernameUi = getUsernameUi();
+            return (
+              <Input
+                label="Username"
+                name="username"
+                icon={<AtSign className="w-5 h-5" />}
+                value={formData.username}
+                onChange={handleChange}
+                placeholder="Enter your username"
+                inputClassName={usernameUi.inputClassName}
+                helperText={usernameMessage}
+                helperClassName={usernameUi.helperClassName}
+              />
+            );
+          })()}
 
           {/* GENDER */}
           <div>
@@ -1203,7 +1355,7 @@ const EditProfile = () => {
   );
 };
 
-const Input = ({ label, icon, disabled, ...props }: any) => (
+const Input = ({ label, icon, disabled, inputClassName = "", helperText = "", helperClassName = "text-muted-foreground", ...props }: any) => (
   <div>
     <label className="block text-sm font-medium mb-2 text-foreground">{label}</label>
     <div className="relative group">
@@ -1219,10 +1371,11 @@ const Input = ({ label, icon, disabled, ...props }: any) => (
           ${disabled 
             ? "bg-muted/30 text-muted-foreground cursor-not-allowed border border-border/50" 
             : "bg-muted/50 border border-border hover:bg-muted/70 hover:border-primary/30 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50"
-          }
+          } ${inputClassName}
         `}
       />
     </div>
+    {helperText ? <p className={`mt-1 text-xs ${helperClassName}`}>{helperText}</p> : null}
   </div>
 );
 

@@ -46,7 +46,7 @@ export function MainLayout({ children, showRightSidebar = true, fromProfile }: M
       </div>
 
       {/* Mobile Bottom Navigation */}
-      <BottomNav />
+      <BottomNav fromProfile={fromProfile} />
     </div>
   );
 }

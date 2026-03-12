@@ -4,7 +4,7 @@ import { Home, Compass, Plus, Sparkles, User, Menu, X, UserPlus } from "lucide-r
 import { cn } from "@/lib/utils";
 import { auth } from "@/firebase";
 import avatar2 from "@/assets/avatar-2.jpg";
-import kirnagramLogo from "@/assets/kirnagramlogo.png";
+import kirnagramLogo from "@/assets/kirnagram@2.png";
 import {
   LogOut,
 } from "lucide-react";
@@ -22,6 +22,7 @@ const navItems: NavItem[] = [
   { icon: Plus, label: "Add Post", path: "/create", isCreate: true },
   { icon: Sparkles, label: "AI Creator", path: "/ai-creator" },
   { icon: UserPlus, label: "Become a Publisher", path: "/become-publisher", isPublisher: true },
+  { icon: Sparkles, label: "Ads Management", path: "/publisher/dashboard" },
   { icon: User, label: "Profile", path: "/profile" },
 ];
 
@@ -63,15 +64,13 @@ export function Sidebar({ fromProfile }: SidebarProps = {}) {
       style={{ background: undefined }}
     >
       {/* Top: Logo */}
-      <div className="flex flex-col items-start gap-2 p-6 pb-2 dark:border-b dark:border-zinc-800">
+      <div className="flex flex-col items-start gap-2 p-6 pb-4">
         <Link to="/" className="flex items-center gap-3" onClick={() => setIsOpen(false)}>
           <img
             src={kirnagramLogo}
             alt="Kirnagram Logo"
-            className="w-8 h-8 object-contain"
-            style={{ filter: 'drop-shadow(0 0 0.5px #fff) drop-shadow(0 0 0.5px #000)' }}
+            className="h-28 object-contain"
           />
-          <span className="text-2xl font-bold tracking-tight text-zinc-800 dark:text-white">kirnagram</span>
         </Link>
       </div>
 
@@ -81,7 +80,13 @@ export function Sidebar({ fromProfile }: SidebarProps = {}) {
           <Link
             key={item.path}
             to={item.path}
-            onClick={() => setIsOpen(false)}
+            onClick={(event) => {
+              setIsOpen(false);
+              if (item.path === "/" && isActive("/")) {
+                event.preventDefault();
+                window.dispatchEvent(new Event("kirnagram:home-refresh"));
+              }
+            }}
             className={cn(
               "flex items-center gap-4 px-6 py-3 rounded-xl transition-all duration-150 font-medium text-base relative group",
               isActive(item.path)
@@ -111,13 +116,13 @@ export function Sidebar({ fromProfile }: SidebarProps = {}) {
       </nav>
 
       {/* Bottom: Only Logout */}
-      <div className="flex flex-col gap-1 pb-6 dark:border-t dark:border-white/10">
+      <div className="flex flex-col gap-1 px-2 pb-6">
         <button
           onClick={async () => {
             await auth.signOut();
             navigate("/login");
           }}
-          className="flex items-center gap-4 px-6 py-3 rounded-lg text-zinc-700 hover:bg-orange-50 hover:text-orange-600 dark:text-zinc-200 dark:hover:bg-orange-50/80 dark:hover:text-orange-600 transition-colors duration-150 font-medium text-base w-full"
+          className="group flex w-full items-center gap-4 rounded-xl border-0 bg-transparent px-4 py-3 text-left text-base font-medium text-zinc-700 transition-all duration-150 hover:bg-orange-50 hover:text-orange-600 dark:text-zinc-200 dark:hover:bg-orange-900/30 dark:hover:text-orange-400"
         >
           <LogOut className="w-6 h-6 text-zinc-400 group-hover:text-orange-600 dark:text-zinc-400 dark:group-hover:text-orange-600" />
           <span>Log out</span>

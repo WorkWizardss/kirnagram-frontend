@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { Bell, ArrowLeft, Clock, Trash2, UserPlus, UserCheck } from "lucide-react";
+import { Bell, ArrowLeft, Clock, Trash2, UserPlus, UserCheck, TrendingUp } from "lucide-react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { useNotificationStore } from "@/store/notificationStore";
 import { useToast } from "@/hooks/use-toast";
@@ -304,6 +304,7 @@ const Notifications = () => {
               const isFollowRequest = notif.action === "follow_request";
               const isFollowApproved = notif.action === "follow_approved";
               const isStartedFollowing = notif.action === "started_following";
+              const isPayoutChange = notif.type === "ai_creator_prompt_payout" || notif.action === "ai_creator_prompt_payout";
               
               // Determine button to show based on follow_status in notification
               const shouldShowFollowBack = isStartedFollowing && notif.follow_status === "none";
@@ -317,28 +318,51 @@ const Notifications = () => {
                   className="bg-muted/40 hover:bg-muted/60 rounded-lg p-3 md:p-4 transition-all border border-border/50 group"
                 >
                   <div className="flex gap-3 items-center">
-                    {/* Avatar */}
-                    <Link to={targetUserId ? `/user/${targetUserId}` : "#"} className="flex-shrink-0">
-                      <img
-                        src={getFallbackAvatar(notif.from_user_image, notif.from_user_gender)}
-                        alt={notif.from_user_name}
-                        className="w-10 h-10 md:w-12 md:h-12 rounded-full object-cover ring-2 ring-primary/20"
-                      />
-                    </Link>
+                    {/* Avatar - For payout notifications, show system icon */}
+                    {isPayoutChange ? (
+                      <div className="flex-shrink-0 w-10 h-10 md:w-12 md:h-12 rounded-full bg-gradient-to-br from-green-500/20 to-emerald-500/20 border-2 border-green-500/30 flex items-center justify-center">
+                        <TrendingUp className="w-5 h-5 md:w-6 md:h-6 text-green-500" />
+                      </div>
+                    ) : (
+                      <Link to={targetUserId ? `/user/${targetUserId}` : "#"} className="flex-shrink-0">
+                        <img
+                          src={getFallbackAvatar(notif.from_user_image, notif.from_user_gender)}
+                          alt={notif.from_user_name}
+                          className="w-10 h-10 md:w-12 md:h-12 rounded-full object-cover ring-2 ring-primary/20"
+                        />
+                      </Link>
+                    )}
 
                     {/* Content */}
                     <div className="flex-1 min-w-0">
-                      <Link to={targetUserId ? `/user/${targetUserId}` : "#"} className="block hover:opacity-80">
-                        <p className="font-semibold text-foreground text-sm md:text-base">
-                          {notif.from_user_name}
-                        </p>
-                        {notif.from_user_username && (
-                          <p className="text-xs text-muted-foreground">@{notif.from_user_username}</p>
-                        )}
-                        <p className="text-xs md:text-sm text-muted-foreground line-clamp-2">
-                          {notif.description}
-                        </p>
-                      </Link>
+                      {isPayoutChange ? (
+                        <div>
+                          <p className="font-semibold text-foreground text-sm md:text-base">Prompt Earnings Updated</p>
+                          <p className="text-xs md:text-sm text-green-600 dark:text-green-400 font-medium line-clamp-2">
+                            {notif.description || notif.message}
+                          </p>
+                          {notif.prompt_id && (
+                            <button
+                              onClick={() => navigate("/ai-creator/earnings")}
+                              className="mt-1 text-xs text-primary hover:underline"
+                            >
+                              View earnings
+                            </button>
+                          )}
+                        </div>
+                      ) : (
+                        <Link to={targetUserId ? `/user/${targetUserId}` : "#"} className="block hover:opacity-80">
+                          <p className="font-semibold text-foreground text-sm md:text-base">
+                            {notif.from_user_name}
+                          </p>
+                          {notif.from_user_username && (
+                            <p className="text-xs text-muted-foreground">@{notif.from_user_username}</p>
+                          )}
+                          <p className="text-xs md:text-sm text-muted-foreground line-clamp-2">
+                            {notif.description}
+                          </p>
+                        </Link>
+                      )}
                       {notif.post_id && notif.post_owner_id && (
                         <button
                           onClick={() => openPost(notif)}
@@ -437,7 +461,7 @@ const Notifications = () => {
                             })()}
                           </span>
                           <button
-                            onClick={() => targetUserId && handleDeleteNotification(notif._id)}
+                            onClick={() => handleDeleteNotification(notif._id)}
                             disabled={deleting === notif._id}
                             className="p-1 rounded-md hover:bg-muted transition-colors"
                             title="Delete notification"

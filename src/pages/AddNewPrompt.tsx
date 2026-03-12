@@ -1,5 +1,5 @@
 import { MainLayout } from "@/components/layout/MainLayout";
-import { ArrowLeft, Upload, Image, Type, FileText, Sparkles, CheckCircle } from "lucide-react";
+import { ArrowLeft, Upload, Image, Type, FileText, Sparkles, CheckCircle, Tag } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useState } from "react";
 import { auth } from "@/firebase";
@@ -13,7 +13,8 @@ const AddNewPrompt = () => {
   const [sampleFile, setSampleFile] = useState<File | null>(null);
   const [styleName, setStyleName] = useState("");
   const [promptDescription, setPromptDescription] = useState("");
-  const [aiModel, setAiModel] = useState<"chatgpt" | "gemini" | "both" | "">("");
+  const [aiModel, setAiModel] = useState<"chatgpt" | "gemini" | "">("");
+  const [promptCategory, setPromptCategory] = useState("");
   const [tags, setTags] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -29,10 +30,10 @@ const AddNewPrompt = () => {
   };
 
   const handleSubmit = async () => {
-    if (!styleName.trim() || !promptDescription.trim() || !aiModel) {
+    if (!styleName.trim() || !promptDescription.trim() || !aiModel || !promptCategory.trim()) {
       toast({
         title: "Missing details",
-        description: "Please fill style name, prompt description, and AI model.",
+        description: "Please fill style name, prompt description, category, and AI model.",
         variant: "destructive",
       });
       return;
@@ -65,6 +66,7 @@ const AddNewPrompt = () => {
       formData.append("style_name", styleName.trim());
       formData.append("prompt_description", promptDescription.trim());
       formData.append("ai_model", aiModel);
+      formData.append("prompt_category", promptCategory.trim());
       formData.append("tags", tags.trim());
       formData.append("image", sampleFile);
 
@@ -165,22 +167,37 @@ const AddNewPrompt = () => {
             <p className="text-xs text-muted-foreground mt-2">Choose a unique, descriptive name</p>
           </div>
 
+          {/* Prompt Category */}
+          <div className="bg-card border border-border rounded-2xl p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Tag className="w-4 h-4 text-violet-500" />
+              <label className="text-sm font-medium">Prompt Category</label>
+            </div>
+            <input
+              type="text"
+              placeholder="e.g., Cyberpunk, Portrait, Fantasy"
+              value={promptCategory}
+              onChange={(e) => setPromptCategory(e.target.value)}
+              className="w-full px-4 py-3 bg-muted/50 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+            />
+            <p className="text-xs text-muted-foreground mt-2">Choose the best category for this style</p>
+          </div>
+
           {/* AI Model */}
           <div className="bg-card border border-border rounded-2xl p-4">
             <div className="flex items-center gap-2 mb-3">
               <Sparkles className="w-4 h-4 text-cyan-500" />
               <label className="text-sm font-medium">AI Model</label>
             </div>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               {[
                 { label: "ChatGPT", value: "chatgpt" },
                 { label: "Gemini", value: "gemini" },
-                { label: "Both", value: "both" },
               ].map((option) => (
                 <button
                   key={option.value}
                   type="button"
-                  onClick={() => setAiModel(option.value as "chatgpt" | "gemini" | "both")}
+                  onClick={() => setAiModel(option.value as "chatgpt" | "gemini")}
                   className={`px-3 py-2 rounded-xl border text-sm transition-colors ${
                     aiModel === option.value
                       ? "border-primary bg-primary/10 text-primary"

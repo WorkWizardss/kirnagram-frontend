@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Mail, Loader, ArrowRight, Sparkles } from "lucide-react";
+import { Mail, Loader, ArrowRight } from "lucide-react";
 import { sendPasswordResetEmail } from "firebase/auth";
 import { useToast } from "@/hooks/use-toast";
 import { auth } from "@/firebase";
 import heroBanner from "@/assets/hero-banner.jpg";
+import kirnagramLogoText from "@/assets/kirnagram@2.png";
 
 const ForgotPassword = () => {
   const [email, setEmail] = useState("");
@@ -68,13 +69,13 @@ const ForgotPassword = () => {
         <div className="absolute inset-0 opacity-10 pointer-events-none bg-gradient-to-br from-primary/30 via-transparent to-primary/20" />
         <div className="relative max-w-md mx-auto w-full">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-3 mb-10">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shadow-lg shadow-primary/20">
-              <Sparkles className="w-6 h-6 text-primary-foreground" />
-            </div>
-            <span className="text-2xl font-display font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
-              kirnagram
-            </span>
+          <Link to="/" className="block w-fit mx-auto mb-10">
+            <img
+              src={kirnagramLogoText}
+              alt="Kirnagram Logo"
+              className="h-auto w-[260px] max-w-[75vw] object-contain"
+              style={{ filter: "drop-shadow(0 0 1px #000)" }}
+            />
           </Link>
           <h1 className="text-3xl font-display font-bold mb-2 text-foreground">Forgot Password?</h1>
           <p className="text-muted-foreground mb-8">

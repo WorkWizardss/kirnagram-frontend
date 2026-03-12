@@ -531,22 +531,25 @@ const AddPostPage = () => {
 
   return (
     <MainLayout showRightSidebar={true}>
-      <div className="mx-auto w-full max-w-6xl space-y-6">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mx-auto w-full max-w-7xl space-y-6 px-2 sm:px-4 lg:px-6">
+        <div className="flex flex-col gap-2 rounded-2xl border border-border/70 bg-card/40 px-4 py-4 sm:px-6 sm:py-5">
           <div>
-            <p className="text-sm text-muted-foreground">Create</p>
+            <p className="text-xs sm:text-sm uppercase tracking-wide text-muted-foreground">Create</p>
             <h1 className="text-2xl sm:text-3xl font-display font-bold text-foreground">
               Add Post
             </h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Upload your artwork or video, adjust framing, and publish with tags.
+            </p>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_1fr] gap-6">
-          <div className="rounded-3xl border border-border bg-card/80 backdrop-blur-xl p-4 sm:p-6 shadow-xl shadow-black/10">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.35fr_0.95fr] lg:items-start">
+          <div className="rounded-3xl border border-border bg-card/80 backdrop-blur-xl p-4 sm:p-6 lg:p-7 shadow-xl shadow-black/10">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
                 <Sparkles className="w-4 h-4 text-primary" />
-                Image Picker
+                Media Picker
               </div>
               {previewUrl && (
                 <div className="flex items-center gap-2">
@@ -555,12 +558,14 @@ const AddPostPage = () => {
                     size="sm"
                     onClick={() => fileInputRef.current?.click()}
                   >
-                    Change image
+                    Change file
                   </Button>
-                  <Button variant="secondary" size="sm" onClick={() => setIsCropOpen(true)}>
-                    <Crop className="w-4 h-4" />
-                    Crop
-                  </Button>
+                  {!isVideo && (
+                    <Button variant="secondary" size="sm" onClick={() => setIsCropOpen(true)}>
+                      <Crop className="w-4 h-4" />
+                      Crop
+                    </Button>
+                  )}
                 </div>
               )}
             </div>
@@ -576,7 +581,7 @@ const AddPostPage = () => {
             <div
               className={cn(
                 "relative overflow-hidden rounded-2xl border border-dashed border-border bg-background/50 flex items-center justify-center",
-                previewUrl ? "min-h-[320px]" : "min-h-[360px]",
+                previewUrl ? "min-h-[340px] lg:min-h-[520px]" : "min-h-[360px] lg:min-h-[520px]",
               )}
             >
               {previewUrl ? (
@@ -638,14 +643,14 @@ const AddPostPage = () => {
             </div>
           </div>
 
-          <div className="rounded-3xl border border-border bg-card/80 backdrop-blur-xl p-4 sm:p-6 shadow-xl shadow-black/10 space-y-6">
+          <div className="rounded-3xl border border-border bg-card/80 backdrop-blur-xl p-4 sm:p-6 shadow-xl shadow-black/10 space-y-6 lg:sticky lg:top-24">
             <div className="space-y-2">
               <h2 className="text-lg font-semibold">Description</h2>
               <Textarea
                 placeholder="Write a caption that tells your story..."
                 value={caption}
                 onChange={(event) => setCaption(event.target.value)}
-                className="min-h-[140px]"
+                className="min-h-[140px] lg:min-h-[180px]"
               />
             </div>
 
@@ -685,7 +690,7 @@ const AddPostPage = () => {
             </div>
 
             <Button
-              className="w-full rounded-full gap-2"
+              className="w-full rounded-full gap-2 h-11 text-sm font-semibold"
               onClick={handleSendPost}
               disabled={!selectedFile || isSubmitting}
             >

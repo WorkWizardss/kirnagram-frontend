@@ -1,6 +1,6 @@
 import React, { useRef } from "react";
-import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { FeedTabs } from "@/components/feed/FeedTabs";
 import { HeroBanner } from "@/components/feed/HeroBanner";
@@ -43,6 +43,7 @@ type UserSummary = {
   image_name?: string;
   gender?: string;
   is_creator?: boolean;
+  follow_status?: "none" | "requested" | "following";
 };
 
 type Comment = {
@@ -54,13 +55,22 @@ type Comment = {
   created_at?: string;
 };
 
+type RemixReturnState = {
+  fromRemix?: boolean;
+  focusPostId?: string;
+  restoreScrollY?: number;
+};
+
 const Index = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [posts, setPosts] = useState<Post[]>([]);
     // Global mute state for all videos
 
   const [loading, setLoading] = useState(true);
   const [userProfiles, setUserProfiles] = useState<Record<string, UserSummary>>({});
+  const [followStatusByUser, setFollowStatusByUser] = useState<Record<string, "none" | "requested" | "following">>({});
+  const [followBusyByUser, setFollowBusyByUser] = useState<Record<string, boolean>>({});
   const [activePostId, setActivePostId] = useState<string | null>(null);
   const [showLikes, setShowLikes] = useState(false);
   const [showComments, setShowComments] = useState(false);
@@ -71,6 +81,39 @@ const Index = () => {
   const postRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const viewTimers = useRef<Record<string, number>>({});
   const viewedPostIds = useRef<Set<string>>(new Set());
+  const remixRestoreAppliedRef = useRef(false);
+
+  const shufflePosts = useCallback((items: Post[]) => {
+    const copy = [...items];
+    for (let i = copy.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [copy[i], copy[j]] = [copy[j], copy[i]];
+    }
+    return copy;
+  }, []);
+
+  const fetchFeed = useCallback(async (mixOrder = false) => {
+    const user = auth.currentUser;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const token = await user.getIdToken();
+      const res = await fetch(`${API_BASE}/posts/feed`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error("Failed to load feed");
+      const data = await res.json();
+      const nextPosts = Array.isArray(data) ? data : [];
+      setPosts(mixOrder ? shufflePosts(nextPosts) : nextPosts);
+    } catch {
+      setPosts([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [shufflePosts]);
 
   const isValidRemoteImage = (url?: string) =>
     typeof url === "string" &&
@@ -101,36 +144,26 @@ const Index = () => {
   };
 
   useEffect(() => {
-    const fetchFeed = async () => {
-      const user = auth.currentUser;
-      if (!user) {
-        setLoading(false);
-        return;
-      }
+    fetchFeed(false);
+  }, [fetchFeed]);
 
-      try {
-        const token = await user.getIdToken();
-        const res = await fetch(`${API_BASE}/posts/feed`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!res.ok) throw new Error("Failed to load feed");
-        const data = await res.json();
-        const nextPosts = Array.isArray(data) ? data : [];
-        setPosts(nextPosts);
-      } catch (error) {
-        setPosts([]);
-      } finally {
-        setLoading(false);
-      }
+  useEffect(() => {
+    const handleHomeRefresh = () => {
+      setLoading(true);
+      viewedPostIds.current.clear();
+      fetchFeed(true);
+      window.scrollTo({ top: 0, behavior: "smooth" });
     };
 
-    fetchFeed();
-  }, []);
+    window.addEventListener("kirnagram:home-refresh", handleHomeRefresh);
+    return () => window.removeEventListener("kirnagram:home-refresh", handleHomeRefresh);
+  }, [fetchFeed]);
 
   useEffect(() => {
     const loadProfiles = async () => {
       const user = auth.currentUser;
       if (!user) return;
+      const viewerUid = user.uid;
       const token = await user.getIdToken();
 
       const uniqueIds = Array.from(new Set(posts.map((post) => post.user_id)));
@@ -140,16 +173,33 @@ const Index = () => {
       await Promise.all(
         missingIds.map(async (id) => {
           try {
-            const res = await fetch(`${API_BASE}/profile/user/${id}`, {
+            const res = await fetch(`${API_BASE}/follow/${id}`, {
               headers: { Authorization: `Bearer ${token}` },
             });
             if (!res.ok) throw new Error("Failed to load user profile");
             const data = await res.json();
-            setUserProfiles((prev) => ({ ...prev, [id]: data }));
+            const profile: UserSummary = {
+              firebase_uid: data?.firebase_uid || id,
+              username: data?.username,
+              full_name: data?.full_name,
+              image_name: data?.image_name,
+              gender: data?.gender,
+              is_creator: data?.is_creator,
+              follow_status: data?.follow_status,
+            };
+            setUserProfiles((prev) => ({ ...prev, [id]: profile }));
+            setFollowStatusByUser((prev) => ({
+              ...prev,
+              [id]: id === viewerUid ? "none" : (data?.follow_status || "none"),
+            }));
           } catch {
             setUserProfiles((prev) => ({
               ...prev,
               [id]: { firebase_uid: id, username: "User" },
+            }));
+            setFollowStatusByUser((prev) => ({
+              ...prev,
+              [id]: id === viewerUid ? "none" : "none",
             }));
           }
         })
@@ -216,6 +266,44 @@ const Index = () => {
   const openProfile = (id?: string) => {
     if (!id) return;
     navigate(auth.currentUser?.uid === id ? "/profile" : `/user/${id}`);
+  };
+
+  const handleToggleFollow = async (targetUid: string) => {
+    const currentUser = auth.currentUser;
+    if (!currentUser || !targetUid || currentUser.uid === targetUid) return;
+
+    const currentStatus = followStatusByUser[targetUid] || "none";
+    setFollowBusyByUser((prev) => ({ ...prev, [targetUid]: true }));
+
+    try {
+      const token = await currentUser.getIdToken();
+
+      if (currentStatus === "following" || currentStatus === "requested") {
+        const res = await fetch(`${API_BASE}/follow/unfollow/${targetUid}`, {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) throw new Error("Failed to unfollow");
+        setFollowStatusByUser((prev) => ({ ...prev, [targetUid]: "none" }));
+      } else {
+        const res = await fetch(`${API_BASE}/follow/send-request/${targetUid}`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) throw new Error("Failed to follow");
+        const data = await res.json();
+        const nextStatus = data?.follow_status === "following" ? "following" : "requested";
+        setFollowStatusByUser((prev) => ({ ...prev, [targetUid]: nextStatus }));
+      }
+    } catch (error) {
+      toast({
+        title: "Follow failed",
+        description: error instanceof Error ? error.message : "Try again",
+        variant: "destructive",
+      });
+    } finally {
+      setFollowBusyByUser((prev) => ({ ...prev, [targetUid]: false }));
+    }
   };
 
   const openLikes = async (postId: string) => {
@@ -350,6 +438,29 @@ const Index = () => {
     };
   }, [posts]);
 
+  useEffect(() => {
+    const state = (location.state || null) as RemixReturnState | null;
+    if (!state?.fromRemix) {
+      remixRestoreAppliedRef.current = false;
+      return;
+    }
+
+    if (remixRestoreAppliedRef.current || loading || orderedPosts.length === 0) return;
+
+    remixRestoreAppliedRef.current = true;
+
+    requestAnimationFrame(() => {
+      if (typeof state.restoreScrollY === "number") {
+        window.scrollTo({ top: state.restoreScrollY, behavior: "auto" });
+      } else if (state.focusPostId && postRefs.current[state.focusPostId]) {
+        postRefs.current[state.focusPostId]?.scrollIntoView({ block: "center", behavior: "auto" });
+      }
+
+      // Clear temporary restoration state so normal navigation remains unchanged.
+      navigate(`${location.pathname}${location.search}`, { replace: true, state: null });
+    });
+  }, [location.pathname, location.search, location.state, loading, navigate, orderedPosts.length]);
+
 
   return (
     <MainLayout>
@@ -370,6 +481,7 @@ const Index = () => {
           <div className="space-y-6">
             {orderedPosts.map((post, index) => {
               const author = userProfiles[post.user_id];
+              const isOwnPost = auth.currentUser?.uid === post.user_id;
               const showRemix = Boolean(post.is_prompt_post);
               const isLiked = auth.currentUser?.uid
                 ? post.likes?.includes(auth.currentUser.uid)
@@ -389,7 +501,7 @@ const Index = () => {
                     <FeedPost
                       author={{
                         name: author?.full_name || author?.username || "User",
-                        username: author?.username ? `@${author.username}` : "@user",
+                        username: author?.username || "user",
                         avatar: getProfileImage(author),
                         isVerified: author?.is_creator,
                       }}
@@ -414,13 +526,23 @@ const Index = () => {
                         })
                       }
                       onRemix={() => {
+                        const remixNavState = {
+                          returnTo: `${location.pathname}${location.search}`,
+                          fromPostId: post._id,
+                          returnScrollY: window.scrollY,
+                        };
+
                         if (post.prompt_id) {
-                          navigate(`/remix/${post.prompt_id}`);
+                          navigate(`/remix/${post.prompt_id}`, { state: remixNavState });
                         } else {
-                          navigate(`/remix/${post._id}`);
+                          navigate(`/remix/${post._id}`, { state: remixNavState });
                         }
                       }}
                       onAuthorClick={() => openProfile(post.user_id)}
+                      showFollowButton={!isOwnPost}
+                      followState={followStatusByUser[post.user_id] || "none"}
+                      followLoading={Boolean(followBusyByUser[post.user_id])}
+                      onToggleFollow={() => handleToggleFollow(post.user_id)}
                       // Pass global mute state to FeedPost (if it supports it)
                     />
                   </div>

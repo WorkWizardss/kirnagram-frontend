@@ -2,12 +2,6 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { 
   Search, 
-  Sparkles, 
-  Flame, 
-  Zap, 
-  Palette, 
-  Wand2, 
-  Camera,
   Shuffle,
   ChevronRight,
   Heart,
@@ -19,7 +13,7 @@ import {
   Clock
 } from "lucide-react";
 import { StoriesRow } from "@/components/feed/StoriesRow";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { auth } from "@/firebase";
 import cyberGirl from "@/assets/cyber-girl.jpg";
@@ -30,14 +24,6 @@ import heroBanner from "@/assets/hero-banner.jpg";
 import profileIcon from "@/assets/profileicon.png";
 import maleIcon from "@/assets/maleicon.png";
 import femaleIcon from "@/assets/femaleicon.png";
-const styleCategories = [
-  { id: "all", label: "For You", icon: Sparkles, gradient: "from-primary to-secondary" },
-  { id: "trending", label: "Hot Now", icon: Flame, gradient: "from-orange-500 to-red-500" },
-  { id: "neon", label: "Neon Glow", icon: Zap, gradient: "from-cyan-400 to-blue-500" },
-  { id: "artistic", label: "Artistic", icon: Palette, gradient: "from-purple-500 to-pink-500" },
-  { id: "fantasy", label: "Fantasy", icon: Wand2, gradient: "from-emerald-400 to-teal-500" },
-  { id: "portrait", label: "Portraits", icon: Camera, gradient: "from-amber-400 to-orange-500" },
-];
 
 const spotlightArt = {
   image: cyberGirl,
@@ -80,6 +66,9 @@ type UserSummary = {
   image_name?: string;
   gender?: string;
   is_creator?: boolean;
+  total_remix_count?: number;
+  has_active_story?: boolean;
+  first_story_id?: string | null;
 };
 
 const API_BASE = "http://127.0.0.1:8000";
@@ -112,7 +101,6 @@ const Explore = () => {
         setActionLoading(null);
       }
     };
-  const [activeCategory, setActiveCategory] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [isShuffling, setIsShuffling] = useState(false);
   const [searchResults, setSearchResults] = useState<any[]>([]);
@@ -121,8 +109,12 @@ const Explore = () => {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [posts, setPosts] = useState<Post[]>([]);
+  const [postsLoaded, setPostsLoaded] = useState(false);
   const [userProfiles, setUserProfiles] = useState<Record<string, UserSummary>>({});
+  const [topCreators, setTopCreators] = useState<UserSummary[]>([]);
   const navigate = useNavigate();
+  const location = useLocation();
+  const appliedTagRef = useRef<string>("");
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
@@ -137,9 +129,10 @@ const Explore = () => {
   useEffect(() => {
     const fetchPosts = async () => {
       if (!currentUser) return;
+      setPostsLoaded(false);
       try {
         const token = await currentUser.getIdToken();
-        const res = await fetch(`${API_BASE}/posts/feed`, {
+        const res = await fetch(`${API_BASE}/posts/explore`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (!res.ok) throw new Error("Failed to load posts");
@@ -147,6 +140,8 @@ const Explore = () => {
         setPosts(Array.isArray(data) ? data : []);
       } catch {
         setPosts([]);
+      } finally {
+        setPostsLoaded(true);
       }
     };
     fetchPosts();
@@ -177,6 +172,32 @@ const Explore = () => {
     };
     loadProfiles();
   }, [posts, currentUser, userProfiles]);
+
+  // Fetch AI creators leaderboard data (authoritative remix totals)
+  useEffect(() => {
+    const fetchTopCreators = async (showFallback = false) => {
+      if (!currentUser) return;
+      try {
+        const token = await currentUser.getIdToken();
+        const res = await fetch(`${API_BASE}/profile/creators/all`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) throw new Error("Failed to load creators");
+        const data = await res.json();
+        const creators = Array.isArray(data) ? data : [];
+        const sorted = creators
+          .filter((u: UserSummary) => u.is_creator)
+          .sort((a: UserSummary, b: UserSummary) => (b.total_remix_count || 0) - (a.total_remix_count || 0));
+        setTopCreators(sorted);
+      } catch {
+        if (showFallback) setTopCreators([]);
+      }
+    };
+
+    fetchTopCreators(true);
+    const intervalId = window.setInterval(() => fetchTopCreators(false), 60 * 1000);
+    return () => window.clearInterval(intervalId);
+  }, [currentUser]);
 
   // Filtering
   const remixPosts = useMemo(() => posts.filter((p) => p.is_prompt_post), [posts]);
@@ -221,10 +242,12 @@ const Explore = () => {
       });
       if (response.ok) {
         const data = await response.json();
-        setSearchResults(data.users || []);
+        const users = Array.isArray(data.users) ? data.users : [];
+        setSearchResults(users);
       }
       // Prompt ID search (local, from posts)
       const lowerQuery = query.trim().toLowerCase();
+      const normalizedTagQuery = lowerQuery.replace(/^#+/, "");
 
       // Debug: log all remix posts and their prompt_badge and prompt_id
       const remixDebug = posts.filter((p) => p.is_prompt_post).map((p) => ({
@@ -241,11 +264,23 @@ const Explore = () => {
         if (!p.is_prompt_post) return false;
         const badge = String(p.prompt_badge || "").trim().toLowerCase();
         const pid = String(p.prompt_id || "").trim().toLowerCase();
+        const hasMatchingTag = (p.tags || []).some((tag) => {
+          const normalizedTag = String(tag || "")
+            .trim()
+            .toLowerCase()
+            .replace(/^#+/, "");
+
+          return (
+            normalizedTag === normalizedTagQuery ||
+            normalizedTag.includes(normalizedTagQuery)
+          );
+        });
         return (
           badge === lowerQuery ||
           badge.includes(lowerQuery) ||
           pid === lowerQuery ||
-          pid.includes(lowerQuery)
+          pid.includes(lowerQuery) ||
+          hasMatchingTag
         );
       });
 
@@ -257,6 +292,24 @@ const Explore = () => {
       setIsSearching(false);
     }
   };
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const tagFromUrl = params.get("tag")?.trim().replace(/^#+/, "") || "";
+
+    if (!tagFromUrl) {
+      appliedTagRef.current = "";
+      return;
+    }
+
+    if (!currentUser || !postsLoaded) return;
+
+    const normalizedTag = tagFromUrl.toLowerCase();
+    if (appliedTagRef.current === normalizedTag) return;
+
+    appliedTagRef.current = normalizedTag;
+    handleSearch(`#${tagFromUrl}`);
+  }, [location.search, currentUser, postsLoaded]);
 
   const handleShuffle = () => {
     setIsShuffling(true);
@@ -271,37 +324,23 @@ const Explore = () => {
     return count.toString();
   };
 
-  const getProfileImage = (user: any) => {
-    const img = user?.image_name as string | undefined;
-    const gender = user?.gender;
-    // Helper to check for valid URL
-    const isValidUrl = (url?: string) =>
-      typeof url === "string" &&
-      url.trim() !== "" &&
-      /^https?:\/\//.test(url) &&
-      !url.includes("default") &&
-      !url.includes("placeholder") &&
-      !url.startsWith("blob:");
-
-    // Debug log all relevant values
-    console.log("[ProfileImage] image_name:", img, "gender:", gender);
-
-    if (isValidUrl(img)) {
-      console.log("[ProfileImage] Using image URL:", img);
-      const cacheBuster = img.includes("?") ? "&" : "?";
-      return `${img}${cacheBuster}t=${Date.now()}`;
-    }
-if (gender === "male") {
-  console.log("[ProfileImage] Using maleIcon");
-  return maleIcon;
-}
-
-if (gender === "female") {
-  console.log("[ProfileImage] Using femaleIcon");
-  return femaleIcon;
-}
-    console.log("[ProfileImage] Using default profileIcon");
+  const getFallbackProfileImage = (user: UserSummary | any) => {
+    if (user?.gender === "male") return maleIcon;
+    if (user?.gender === "female") return femaleIcon;
     return profileIcon;
+  };
+
+  const getProfileImage = (user: UserSummary | any) => {
+    const img = user?.image_name as string | undefined;
+
+    if (typeof img === "string" && img.trim() !== "") {
+      if (img.startsWith("http")) {
+        return img;
+      }
+      return `${API_BASE}/profile/avatar/${img}`;
+    }
+
+    return getFallbackProfileImage(user);
   };
 
   return (
@@ -363,11 +402,24 @@ if (gender === "female") {
                 }}
               >
                 <div className="relative">
-                  <img
-                    src={getProfileImage(user)}
-                    alt={user.full_name || user.username || "User"}
-                    className="w-16 h-16 rounded-full object-cover border border-border"
-                  />
+                  <div
+                    className={cn(
+                      "w-16 h-16 rounded-full",
+                      user.has_active_story
+                        ? "p-0.5 bg-gradient-to-tr from-orange-500 via-pink-500 to-yellow-400"
+                        : ""
+                    )}
+                  >
+                    <img
+                      src={getProfileImage(user)}
+                      alt={user.full_name || user.username || "User"}
+                      className="w-full h-full rounded-full object-cover border border-border"
+                      onError={(e) => {
+                        e.currentTarget.onerror = null;
+                        e.currentTarget.src = getFallbackProfileImage(user);
+                      }}
+                    />
+                  </div>
                   {user.is_creator && (
                     <span className="absolute -bottom-1 -right-1 bg-gradient-to-r from-primary to-secondary text-white text-[10px] px-2 py-0.5 rounded-full font-semibold shadow-md border border-white flex items-center gap-1">
                       <Crown className="w-3 h-3 mr-0.5 inline-block" />
@@ -586,6 +638,13 @@ if (gender === "female") {
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4 gap-2">
             <h3 className="text-lg sm:text-xl font-display font-semibold">Top Creators</h3>
+            <button
+              onClick={() => navigate('/leaderboard')}
+              className="flex items-center gap-1.5 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
+            >
+              See All
+              <ChevronRight className="w-4 h-4" />
+            </button>
           </div>
           <div
             className={cn(
@@ -593,21 +652,11 @@ if (gender === "female") {
             )}
             style={{ gridAutoRows: "auto" }}
           >
-            {(() => {
-              // Count remix posts (prompt posts) per creator
-              const creatorStats = Object.values(userProfiles)
-                .filter((user) => user.is_creator)
-                .map((creator) => {
-                  const remixCount = posts.filter(
-                    (p) => p.is_prompt_post && p.user_id === creator.firebase_uid
-                  ).length;
-                  return { ...creator, remixCount };
-                })
-                .sort((a, b) => b.remixCount - a.remixCount);
-              return creatorStats.slice(0, 9).map((creator, index) => (
+            {topCreators.slice(0, 9).map((creator, index) => (
                 <div
                   key={creator.firebase_uid}
-                  className="bg-card border border-border rounded-2xl p-4 flex flex-col items-center shadow-sm relative cursor-pointer hover:border-primary/50 transition-all"
+                  onClick={() => navigate(`/user/${creator.firebase_uid}`)}
+                  className="bg-card border border-border rounded-2xl p-4 flex flex-col items-center shadow-sm relative cursor-pointer hover:border-primary/50 hover:scale-105 transition-all"
                   style={{ animationDelay: `${index * 50}ms` }}
                 >
                   {index === 0 && (
@@ -619,37 +668,22 @@ if (gender === "female") {
                     src={getProfileImage(creator)}
                     alt={creator.full_name || creator.username || "Creator"}
                     className="w-20 h-20 rounded-full object-cover mb-3"
+                    onError={(e) => {
+                      e.currentTarget.onerror = null;
+                      e.currentTarget.src = getFallbackProfileImage(creator);
+                    }}
                   />
                   <p className="font-semibold text-sm text-center w-full truncate">{creator.full_name || creator.username || "Creator"}</p>
-                  <p className="text-xs text-muted-foreground text-center mt-1">{creator.remixCount} remix posts</p>
+                  <p className="text-xs text-muted-foreground text-center mt-1">{creator.total_remix_count || 0} remixes</p>
                 </div>
-              ));
-            })()}
-            {Object.values(userProfiles).filter((user) => user.is_creator).length === 0 && (
+              ))}
+            {topCreators.length === 0 && (
               <div className="col-span-3 text-muted-foreground py-8">No AI creators found.</div>
             )}
           </div>
         </div>
 
-        {/* Style Categories - Horizontal Scroll */}
         <div className="sticky md:relative top-16 md:top-auto z-40 md:z-auto bg-background/95 backdrop-blur-sm py-2 sm:py-3 px-3 sm:px-4 md:px-6 mb-6 sm:mb-8">
-          <div className="flex gap-1.5 sm:gap-2 overflow-x-auto pb-2 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-            {styleCategories.map((cat) => (
-              <button
-                key={cat.id}
-                onClick={() => setActiveCategory(cat.id)}
-                className={cn(
-                  "flex items-center gap-2 px-4 py-2 rounded-full font-medium transition-all whitespace-nowrap",
-                  activeCategory === cat.id
-                    ? `bg-gradient-to-r ${cat.gradient} text-white shadow-md`
-                    : "bg-card border border-border text-foreground hover:border-primary/50"
-                )}
-              >
-                <cat.icon className="w-4 h-4" />
-                {cat.label}
-              </button>
-            ))}
-          </div>
           <h3 className="text-lg sm:text-xl font-display font-semibold mb-4">Discover Art</h3>
           <div
             className={cn(

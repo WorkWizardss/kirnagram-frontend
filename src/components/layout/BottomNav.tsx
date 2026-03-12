@@ -17,42 +17,88 @@ const navItems: NavItem[] = [
   { icon: User, label: "Profile", path: "/profile" },
 ];
 
-export function BottomNav() {
+interface BottomNavProps {
+  fromProfile?: boolean;
+}
+
+export function BottomNav({ fromProfile }: BottomNavProps = {}) {
   const location = useLocation();
 
-  const isActive = (path: string) => location.pathname === path;
+  const isActive = (path: string) => {
+    if (path === "/profile") {
+      return location.pathname === "/profile" || (fromProfile && location.pathname === "/posts");
+    }
+    if (path === "/") {
+      if (fromProfile && location.pathname === "/posts") return false;
+      return (
+        location.pathname === "/" ||
+        location.pathname === "/home" ||
+        location.pathname === "/posts"
+      );
+    }
+    return location.pathname === path || location.pathname.startsWith(path + "/");
+  };
 
   return (
     <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-xl border-t border-border safe-area-pb">
       <div className="flex items-center justify-around py-2 px-2">
-        {navItems.map((item) => (
-          <Link
-            key={item.path}
-            to={item.path}
-            className={cn(
-              "flex flex-col items-center gap-1 py-2 px-3 rounded-xl transition-all duration-300",
-              item.isCreate
-                ? "relative -mt-5"
-                : isActive(item.path)
-                ? "text-primary"
-                : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            {item.isCreate ? (
-              <div className="w-12 h-12 rounded-full bg-gradient-to-r from-primary to-secondary flex items-center justify-center shadow-lg shadow-primary/30">
-                <item.icon className="w-6 h-6 text-primary-foreground" />
-              </div>
-            ) : (
-              <item.icon className="w-5 h-5" />
-            )}
-            <span className={cn(
-              "text-[10px] font-medium",
-              item.isCreate && "mt-1"
-            )}>
-              {item.label}
-            </span>
-          </Link>
-        ))}
+        {navItems.map((item) => {
+          const active = isActive(item.path);
+          const displayLabel = item.label === "Feeds" ? "Home" : item.label;
+
+          return (
+            <Link
+              key={item.path}
+              to={item.path}
+              onClick={(event) => {
+                if (item.path === "/" && active) {
+                  event.preventDefault();
+                  window.dispatchEvent(new Event("kirnagram:home-refresh"));
+                }
+              }}
+              className={cn(
+                "relative flex flex-col items-center gap-1 py-2 px-3 rounded-xl transition-all duration-200",
+                item.isCreate
+                  ? "relative -mt-5"
+                  : active
+                    ? "text-orange-600 dark:text-orange-500"
+                    : "text-zinc-500 hover:text-orange-600 dark:text-zinc-400 dark:hover:text-orange-400"
+              )}
+            >
+              {!item.isCreate && (
+                <span
+                  className={cn(
+                    "absolute -top-2 h-0.5 w-8 rounded-full transition-all",
+                    active ? "bg-orange-500" : "bg-transparent"
+                  )}
+                />
+              )}
+
+              {item.isCreate ? (
+                <div
+                  className={cn(
+                    "w-12 h-12 rounded-full bg-gradient-to-r from-primary to-secondary flex items-center justify-center shadow-lg shadow-primary/30 transition-all",
+                    active && "ring-2 ring-orange-400 ring-offset-2 ring-offset-background"
+                  )}
+                >
+                  <item.icon className="w-6 h-6 text-primary-foreground" />
+                </div>
+              ) : (
+                <item.icon className="w-5 h-5" />
+              )}
+
+              <span
+                className={cn(
+                  "text-[10px] font-medium",
+                  item.isCreate && "mt-1",
+                  active && !item.isCreate && "font-semibold"
+                )}
+              >
+                {displayLabel}
+              </span>
+            </Link>
+          );
+        })}
       </div>
     </nav>
   );

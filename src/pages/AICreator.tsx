@@ -18,7 +18,7 @@ import heroBanner from "@/assets/hero-banner.jpg";
 const steps = ["Personal", "Social Media"];
 
 const API_URL = "http://localhost:8000";
-const REMIX_PAYOUT = 1; // Match CreatorEarnings.tsx
+const getPayoutPerRemix = (prompt: any) => Number(prompt?.payout_per_remix ?? 1) || 1;
 
 const AICreator = () => {
   const navigate = useNavigate();
@@ -128,28 +128,41 @@ const AICreator = () => {
     fetchPrompts();
   }, [profile, isApproved]);
 
-  // --- Earnings logic: match CreatorEarnings.tsx ---
+  // --- Earnings logic: use API totalEarnings (not calculated from prompts) ---
+  const [totalEarnings, setTotalEarnings] = useState(0);
   const [totalWithdrawn, setTotalWithdrawn] = useState(0);
-  const totalRemixes = prompts.reduce((s, p) => s + (p.remixes?.length || 0), 0);
-  const totalEarnings = totalRemixes * REMIX_PAYOUT;
+  const [remixes, setRemixes] = useState<any[]>([]);
+  const totalRemixes = remixes.length;
   const availableBalance = Math.max(0, totalEarnings - totalWithdrawn);
 
   useEffect(() => {
-    const fetchWithdrawn = async () => {
+    const fetchEarningsData = async () => {
       try {
         const user = auth.currentUser;
         if (!user) return;
         const token = await user.getIdToken();
+        
+        // Fetch remixes for count
+        const remixesRes = await fetch(`${API_URL}/remix/my-remixes`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (remixesRes.ok) {
+          const remixesData = await remixesRes.json();
+          setRemixes(remixesData.remixes || []);
+        }
+        
+        // Fetch earnings summary with accurate totalEarnings
         const res = await fetch(`${API_URL}/withdraw/summary`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (res.ok) {
           const data = await res.json();
+          setTotalEarnings(data.totalEarnings || 0);
           setTotalWithdrawn(data.totalWithdrawn || 0);
         }
       } catch {}
     };
-    fetchWithdrawn();
+    fetchEarningsData();
   }, []);
 
   // Handle input changes
@@ -409,6 +422,55 @@ const AICreator = () => {
               </div>
             </div>
 
+            {/* Social Media Icons Row */}
+            {(profile.instagram || profile.youtube || profile.facebook || profile.x || profile.linkedin || profile.whatsapp || profile.website) && (
+              <div className="flex gap-3 justify-center py-4 border-b border-border">
+                {profile.instagram && (
+                  <a href={profile.instagram} target="_blank" rel="noopener noreferrer" title="Instagram" className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 via-pink-500 to-orange-500 flex items-center justify-center hover:scale-110 transition-transform">
+                    <Instagram className="w-5 h-5 text-white" />
+                  </a>
+                )}
+                {profile.youtube && (
+                  <a href={profile.youtube} target="_blank" rel="noopener noreferrer" title="YouTube" className="w-10 h-10 rounded-full bg-red-500 flex items-center justify-center hover:scale-110 transition-transform">
+                    <Youtube className="w-5 h-5 text-white" />
+                  </a>
+                )}
+                {profile.facebook && (
+                  <a href={profile.facebook} target="_blank" rel="noopener noreferrer" title="Facebook" className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center hover:scale-110 transition-transform">
+                    <Facebook className="w-5 h-5 text-white" />
+                  </a>
+                )}
+                {profile.x && (
+                  <a href={profile.x} target="_blank" rel="noopener noreferrer" title="X (Twitter)" className="w-10 h-10 rounded-full bg-black dark:bg-white flex items-center justify-center hover:scale-110 transition-transform">
+                    <svg className="w-5 h-5 text-white dark:text-black" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M22.46 5.924c-.793.352-1.645.59-2.54.698a4.48 4.48 0 0 0 1.963-2.475 8.94 8.94 0 0 1-2.828 1.082A4.48 4.48 0 0 0 16.11 4c-2.48 0-4.49 2.01-4.49 4.49 0 .352.04.695.116 1.022C7.728 9.36 4.1 7.6 1.67 4.98c-.386.664-.607 1.437-.607 2.26 0 1.56.795 2.94 2.005 3.75a4.48 4.48 0 0 1-2.034-.563v.057c0 2.18 1.55 4 3.6 4.42-.377.104-.775.16-1.185.16-.29 0-.57-.028-.845-.08.57 1.78 2.23 3.08 4.2 3.12A8.98 8.98 0 0 1 2 19.54a12.7 12.7 0 0 0 6.88 2.02c8.26 0 12.78-6.84 12.78-12.78 0-.195-.004-.39-.013-.583A9.1 9.1 0 0 0 24 4.59a8.98 8.98 0 0 1-2.54.698z"/>
+                    </svg>
+                  </a>
+                )}
+                {profile.linkedin && (
+                  <a href={profile.linkedin} target="_blank" rel="noopener noreferrer" title="LinkedIn" className="w-10 h-10 rounded-full bg-blue-700 flex items-center justify-center hover:scale-110 transition-transform">
+                    <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M19 0h-14c-2.76 0-5 2.24-5 5v14c0 2.76 2.24 5 5 5h14c2.76 0 5-2.24 5-5v-14c0-2.76-2.24-5-5-5zm-8.5 19h-3v-8h3v8zm-1.5-9.268c-.966 0-1.75-.784-1.75-1.75s.784-1.75 1.75-1.75 1.75.784 1.75 1.75-.784 1.75-1.75 1.75zm13.5 9.268h-3v-4.5c0-1.07-.93-2-2-2s-2 .93-2 2v4.5h-3v-8h3v1.085c.41-.63 1.36-1.085 2.5-1.085 1.93 0 3.5 1.57 3.5 3.5v4.5z"/>
+                    </svg>
+                  </a>
+                )}
+                {profile.whatsapp && (
+                  <a href={profile.whatsapp} target="_blank" rel="noopener noreferrer" title="WhatsApp" className="w-10 h-10 rounded-full bg-green-600 flex items-center justify-center hover:scale-110 transition-transform">
+                    <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+                    </svg>
+                  </a>
+                )}
+                {profile.website && (
+                  <a href={profile.website} target="_blank" rel="noopener noreferrer" title={profile.website_name || "Website"} className="w-10 h-10 rounded-full bg-primary flex items-center justify-center hover:scale-110 transition-transform">
+                    <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+                    </svg>
+                  </a>
+                )}
+              </div>
+            )}
            
           </div>
 
@@ -427,10 +489,10 @@ const AICreator = () => {
 
             <Link
               to="/ai-creator/add-prompt"
-              className="p-4 md:p-5 bg-card border border-border rounded-2xl hover:border-primary/50 transition-all"
+              className="p-4 md:p-5 bg-card border border-border rounded-2xl hover:border-primary/50 md:hover:border-border/80 transition-all"
             >
-              <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center mb-3">
-                <Plus className="w-5 h-5 text-primary" />
+              <div className="w-11 h-11 rounded-xl bg-muted flex items-center justify-center mb-3">
+                <Plus className="w-5 h-5 text-foreground" />
               </div>
               <h3 className="font-semibold mb-0.5">Add New Prompt</h3>
               <p className="text-xs text-muted-foreground">Create AI style</p>
@@ -438,10 +500,10 @@ const AICreator = () => {
 
             <Link
               to="/ai-creator/prompts"
-              className="p-4 md:p-5 bg-card border border-border rounded-2xl hover:border-secondary/50 transition-all"
+              className="p-4 md:p-5 bg-card border border-border rounded-2xl hover:border-secondary/50 md:hover:border-border/80 transition-all"
             >
-              <div className="w-11 h-11 rounded-xl bg-secondary/10 flex items-center justify-center mb-3">
-                <FileText className="w-5 h-5 text-secondary" />
+              <div className="w-11 h-11 rounded-xl bg-muted flex items-center justify-center mb-3">
+                <FileText className="w-5 h-5 text-foreground" />
               </div>
               <h3 className="font-semibold mb-0.5">My Prompts</h3>
               <p className="text-xs text-muted-foreground">Manage styles</p>
@@ -449,10 +511,10 @@ const AICreator = () => {
 
             <Link
               to="/ai-creator/edit-profile"
-              className="p-4 md:p-5 bg-card border border-border rounded-2xl hover:border-pink-500/50 transition-all"
+              className="p-4 md:p-5 bg-card border border-border rounded-2xl hover:border-pink-500/50 md:hover:border-border/80 transition-all"
             >
-              <div className="w-11 h-11 rounded-xl bg-pink-500/10 flex items-center justify-center mb-3">
-                <Edit className="w-5 h-5 text-pink-500" />
+              <div className="w-11 h-11 rounded-xl bg-muted flex items-center justify-center mb-3">
+                <Edit className="w-5 h-5 text-foreground" />
               </div>
               <h3 className="font-semibold mb-0.5">Edit Profile</h3>
               <p className="text-xs text-muted-foreground">Update info</p>

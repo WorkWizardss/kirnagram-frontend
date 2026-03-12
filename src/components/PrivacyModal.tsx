@@ -23,69 +23,50 @@ export const PrivacyModal = ({ isOpen, onClose }: PrivacyModalProps) => {
         </div>
 
         {/* Scrollable Content */}
-        <div className="overflow-y-auto flex-1 p-6 text-sm text-muted-foreground space-y-4">
+        <div className="overflow-y-auto flex-1 p-6 text-sm text-muted-foreground space-y-5">
           <section>
-            <h3 className="text-lg font-semibold text-foreground mb-2">1. Introduction</h3>
-            <p>
-              kirnagram respects your privacy. This policy informs you of how we collect, use, and disclose personal data.
-            </p>
+            <p className="text-xs uppercase tracking-[0.2em] text-primary mb-1">Kirnagram User Policies & Guidelines</p>
+            <h3 className="text-lg font-semibold text-foreground mb-1">Privacy Policy</h3>
+            <p>Last Updated: February 21, 2026</p>
           </section>
 
           <section>
-            <h3 className="text-lg font-semibold text-foreground mb-2">2. Information Collection</h3>
-            <p>We collect information you provide directly, such as:</p>
-            <ul className="list-disc list-inside space-y-1 mt-2">
-              <li>Email address</li>
-              <li>Full name</li>
-              <li>Phone number</li>
-              <li>Profile information</li>
-            </ul>
+            <h4 className="text-base font-semibold text-foreground mb-2">1. Data Collection & Zero-Training Guarantee</h4>
+            <p>Kirnagram collects only basic account details required for operation, including name and email.</p>
+            <p className="mt-1">Kirnagram does not use uploaded references or generated outputs to train, retrain, or improve AI models.</p>
+            <p className="mt-1">Reference images are processed temporarily in secure memory and are not stored for AI training, analytics, or data mining.</p>
           </section>
 
           <section>
-            <h3 className="text-lg font-semibold text-foreground mb-2">3. Use of Data</h3>
-            <p>We use collected data to:</p>
-            <ul className="list-disc list-inside space-y-1 mt-2">
-              <li>Provide and maintain our service</li>
-              <li>Notify you about changes</li>
-              <li>Provide customer support</li>
-              <li>Improve our service</li>
-            </ul>
+            <h4 className="text-base font-semibold text-foreground mb-2">2. Third-Party AI Services</h4>
+            <p>Kirnagram may use third-party AI providers such as Gemini, OpenAI, or other supported generation services.</p>
+            <p className="mt-1">Kirnagram does not use user data for AI training, but third-party providers may process generation data under their own policies.</p>
           </section>
 
           <section>
-            <h3 className="text-lg font-semibold text-foreground mb-2">4. Data Security</h3>
-            <p>
-              We implement appropriate security measures to protect your personal data against unauthorized access, alteration, or destruction.
-            </p>
+            <h4 className="text-base font-semibold text-foreground mb-2">3. Stories, Feed & Watermarking</h4>
+            <p>Stories media is temporary and deleted after 24 hours. Public feed media is stored securely for platform functionality.</p>
+            <p className="mt-1">AI-generated images include mandatory watermarking. Removing, hiding, or modifying the watermark is prohibited.</p>
           </section>
 
           <section>
-            <h3 className="text-lg font-semibold text-foreground mb-2">5. Third Party Services</h3>
-            <p>
-              We may use third-party services like Firebase for authentication and data storage. Please review their privacy policies.
-            </p>
+            <h4 className="text-base font-semibold text-foreground mb-2">4. Infrastructure Security</h4>
+            <p>Kirnagram uses secure VPS infrastructure, encrypted transmission, encrypted storage, and restricted internal access to protect user data.</p>
+          </section>
+
+          <section className="pt-2 border-t border-border">
+            <p className="text-xs uppercase tracking-[0.2em] text-primary mb-1">Kirnagram AI Creator Policies & Guidelines</p>
+            <h3 className="text-lg font-semibold text-foreground mb-2">AI Creator Privacy Policy</h3>
+            <p>Creator prompts and creative logic are treated as confidential and will not be sold, leaked, or disclosed to third parties.</p>
+            <p className="mt-1">Creator data is hosted on secure infrastructure with end-to-end encryption and modern privacy protections.</p>
+            <p className="mt-1">Contact information is used only for verification, security updates, and official communication under a strict zero-spam policy.</p>
+            <p className="mt-1">Creators retain autonomy over their data and may request deletion of templates, prompts, or account data.</p>
+            <p className="mt-2">Last updated: March 2026</p>
           </section>
 
           <section>
-            <h3 className="text-lg font-semibold text-foreground mb-2">6. User Rights</h3>
-            <p>
-              You have the right to access, update, or delete your personal data. Contact us for any privacy-related requests.
-            </p>
-          </section>
-
-          <section>
-            <h3 className="text-lg font-semibold text-foreground mb-2">7. Changes to Policy</h3>
-            <p>
-              We may update this privacy policy from time to time. We will notify you of any changes by updating the policy on our site.
-            </p>
-          </section>
-
-          <section>
-            <h3 className="text-lg font-semibold text-foreground mb-2">8. Contact Us</h3>
-            <p>
-              If you have any questions about this privacy policy, please contact us at support@kirnagram.com
-            </p>
+            <h4 className="text-base font-semibold text-foreground mb-2">Security Notice</h4>
+            <p>If unauthorized access, hacking attempts, or data theft occurs, Kirnagram may take immediate protective and legal action where necessary.</p>
           </section>
         </div>
 

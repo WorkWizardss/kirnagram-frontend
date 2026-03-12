@@ -23,59 +23,55 @@ export const TermsModal = ({ isOpen, onClose }: TermsModalProps) => {
         </div>
 
         {/* Scrollable Content */}
-        <div className="overflow-y-auto flex-1 p-6 text-sm text-muted-foreground space-y-4">
+        <div className="overflow-y-auto flex-1 p-6 text-sm text-muted-foreground space-y-5">
           <section>
-            <h3 className="text-lg font-semibold text-foreground mb-2">1. Acceptance of Terms</h3>
-            <p>
-              By accessing and using kirnagram, you accept and agree to be bound by the terms and provision of this agreement.
-            </p>
+            <p className="text-xs uppercase tracking-[0.2em] text-primary mb-1">Kirnagram User Policies & Guidelines</p>
+            <h3 className="text-lg font-semibold text-foreground mb-1">Terms & Conditions</h3>
+            <p>Effective Date: February 21, 2026</p>
           </section>
 
           <section>
-            <h3 className="text-lg font-semibold text-foreground mb-2">2. Use License</h3>
-            <p>Permission is granted to temporarily download one copy of the materials on kirnagram for personal, non-commercial viewing only.</p>
+            <h4 className="text-base font-semibold text-foreground mb-2">1. Platform Usage Responsibility</h4>
+            <p>Users are responsible for all activities performed through their accounts, including content shared in Public Feed, Stories, and other platform features.</p>
           </section>
 
           <section>
-            <h3 className="text-lg font-semibold text-foreground mb-2">3. Disclaimer</h3>
-            <p>
-              The materials on kirnagram are provided on an 'as is' basis. kirnagram makes no warranties, expressed or implied.
-            </p>
+            <h4 className="text-base font-semibold text-foreground mb-2">2. AI Creator Attribution</h4>
+            <p>When users generate images using creator templates, Kirnagram may automatically credit the original AI Creator.</p>
           </section>
 
           <section>
-            <h3 className="text-lg font-semibold text-foreground mb-2">4. Limitations</h3>
-            <p>
-              In no event shall kirnagram or its suppliers be liable for any damages arising out of the use or inability to use the materials.
-            </p>
+            <h4 className="text-base font-semibold text-foreground mb-2">3. Content Moderation & Safety</h4>
+            <p>Pornographic, illegal, and law-violating content is strictly prohibited. Kirnagram uses automated and manual moderation. Violations may result in suspension or permanent ban.</p>
           </section>
 
           <section>
-            <h3 className="text-lg font-semibold text-foreground mb-2">5. Accuracy of Materials</h3>
-            <p>
-              The materials appearing on kirnagram could include technical, typographical, or photographic errors.
-            </p>
+            <h4 className="text-base font-semibold text-foreground mb-2">4. Deepfake & Public Figure Rules</h4>
+            <p>Deceptive impersonation, misleading deepfakes, and unauthorized use of celebrity or political figure likeness are prohibited.</p>
+            <p className="mt-1">If users upload another person's image, they confirm consent from that individual.</p>
           </section>
 
           <section>
-            <h3 className="text-lg font-semibold text-foreground mb-2">6. Links</h3>
-            <p>
-              kirnagram is not responsible for the contents of any linked sites. Use of any such linked website is at the user's own risk.
-            </p>
+            <h4 className="text-base font-semibold text-foreground mb-2">5. Reporting, Age & IP</h4>
+            <p>Users can report harmful or policy-violating content. Minimum platform age is 13; creator monetization may require 18+.</p>
+            <p className="mt-1">Users retain ownership of generated images. AI Creators retain ownership of prompt structures and template designs.</p>
           </section>
 
           <section>
-            <h3 className="text-lg font-semibold text-foreground mb-2">7. Modifications</h3>
-            <p>
-              kirnagram may revise these terms of service at any time without notice.
-            </p>
+            <h4 className="text-base font-semibold text-foreground mb-2">6. Suspension, Termination & Policy Updates</h4>
+            <p>Kirnagram may suspend or terminate accounts for harmful, illegal, or abusive behavior and may update policies to meet legal and safety requirements.</p>
           </section>
 
-          <section>
-            <h3 className="text-lg font-semibold text-foreground mb-2">8. Governing Law</h3>
-            <p>
-              These terms are governed by and construed in accordance with applicable laws.
-            </p>
+          <section className="pt-2 border-t border-border">
+            <p className="text-xs uppercase tracking-[0.2em] text-primary mb-1">Kirnagram AI Creator Policies & Guidelines</p>
+            <h3 className="text-lg font-semibold text-foreground mb-2">AI Creator Terms & Conditions</h3>
+            <p>Creators earn commission when users generate using their templates. Earnings and usage are shown in Creator Dashboard.</p>
+            <p className="mt-1">Minimum payout: first withdrawal INR 500, then INR 100 after first successful payout.</p>
+            <p className="mt-1">Withdrawals may include gateway charges and applicable taxes. Processing time is usually 3-7 business days.</p>
+            <p className="mt-1">Copied, plagiarized, violent, pornographic, or illegal prompt templates are prohibited and may lead to immediate account action.</p>
+            <p className="mt-1">Creators retain ownership of original prompt logic. By submission, creators grant Kirnagram a non-exclusive license to host and enable generation from templates.</p>
+            <p className="mt-1">Kirnagram protects prompt confidentiality. Unauthorized copying, scraping, reverse engineering, or reuse on other platforms is prohibited.</p>
+            <p className="mt-2">Last updated: March 2026</p>
           </section>
         </div>
 

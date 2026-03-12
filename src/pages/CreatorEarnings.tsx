@@ -1,5 +1,5 @@
 import { MainLayout } from "@/components/layout/MainLayout";
-import { ArrowLeft, TrendingUp, Users, IndianRupee, Eye, ChevronDown } from "lucide-react";
+import { ArrowLeft, TrendingUp, Users, IndianRupee, Eye, ChevronDown, Clock, CheckCircle2, XCircle, AlertCircle } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { auth } from "@/firebase";
@@ -11,22 +11,23 @@ import {
 
 const API_BASE = "http://127.0.0.1:8000";
 
-// payout per remix (INR) — adjust as needed
-const REMIX_PAYOUT = 1;
+const getPayoutPerRemix = (prompt: any) => Number(prompt?.payout_per_remix ?? 1) || 1;
 
 const CreatorEarnings = () => {
   const [timeRange, setTimeRange] = useState("6M");
   const { toast } = useToast();
   const [prompts, setPrompts] = useState<any[]>([]);
+  const [remixes, setRemixes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showWithdraw, setShowWithdraw] = useState(false);
   const [withdrawSuccess, setWithdrawSuccess] = useState(false);
   const [upiId, setUpiId] = useState("");
-  const [amount, setAmount] = useState(200);
+  const [amount, setAmount] = useState(100);
   const [withdrawLoading, setWithdrawLoading] = useState(false);
+  const [totalEarnings, setTotalEarnings] = useState(0);
   const [totalWithdrawn, setTotalWithdrawn] = useState(0);
-  // Always use 200 as the minimum withdraw amount for display and logic
-  const minWithdraw = 200;
+  const [minWithdraw, setMinWithdraw] = useState(100);
+  const [withdrawHistory, setWithdrawHistory] = useState<any[]>([]);
 
   const fetchPrompts = async () => {
     try {
@@ -43,14 +44,33 @@ const CreatorEarnings = () => {
       const data = await res.json();
       setPrompts(Array.isArray(data) ? data : []);
 
-      // 2️⃣ Get earnings summary (also includes minWithdrawAmount)
+      // 2️⃣ Get remixes with historical payout values
+      const remixesRes = await fetch(`${API_BASE}/remix/my-remixes`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (remixesRes.ok) {
+        const remixesData = await remixesRes.json();
+        setRemixes(remixesData.remixes || []);
+      }
+
+      // 3️⃣ Get earnings summary (includes dynamic minWithdrawAmount and accurate totalEarnings)
       const earningsRes = await fetch(`${API_BASE}/withdraw/summary`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (earningsRes.ok) {
         const earningsData = await earningsRes.json();
+        setTotalEarnings(earningsData.totalEarnings || 0);
         setTotalWithdrawn(earningsData.totalWithdrawn || 0);
-        // Ignore backend minWithdrawAmount, always use 200
+        setMinWithdraw(Number(earningsData.minWithdrawAmount ?? 100) || 100);
+      }
+
+      // 4️⃣ Get withdraw history
+      const historyRes = await fetch(`${API_BASE}/withdraw/history`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (historyRes.ok) {
+        const historyData = await historyRes.json();
+        setWithdrawHistory(historyData.history || []);
       }
     } catch (e: any) {
       toast({
@@ -67,12 +87,9 @@ const CreatorEarnings = () => {
     fetchPrompts();
   }, []);
 
-  const totalRemixes = prompts.reduce((s, p) => s + (p.remixes?.length || 0), 0);
-  const uniqueRemixUsers = new Set<string>();
-  prompts.forEach((p) => (p.remixes || []).forEach((r: string) => uniqueRemixUsers.add(r)));
-  const totalUsers = uniqueRemixUsers.size;
+  const totalRemixes = remixes.length;
+  const uniquePrompts = new Set(remixes.map(r => r.prompt_id)).size;
   const totalViews = prompts.reduce((s, p) => s + (p.views?.length || 0), 0);
-  const totalEarnings = totalRemixes * REMIX_PAYOUT;
   const availableBalance = Math.max(0, totalEarnings - totalWithdrawn);
 
   useEffect(() => {
@@ -87,18 +104,17 @@ const CreatorEarnings = () => {
     }
   }, [availableBalance, minWithdraw]);
 
-  // chart: group earnings by month of created_at
+  // chart: group earnings by month using individual remix payouts (historical)
   const chartMap: Record<string, { month: string; earnings: number; remixes: number }> = {};
   const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-  prompts.forEach((p) => {
-    const date = p.created_at ? new Date(p.created_at) : new Date();
+  remixes.forEach((remix) => {
+    const date = remix.created_at ? new Date(remix.created_at) : new Date();
     const key = `${date.getFullYear()}-${date.getMonth()}`;
     const month = `${monthNames[date.getMonth()]} ${date.getFullYear().toString().slice(-2)}`;
-    const remixes = (p.remixes || []).length;
-    const earnings = remixes * REMIX_PAYOUT;
+    const payoutValue = remix.payout_per_remix || 1;
     if (!chartMap[key]) chartMap[key] = { month, earnings: 0, remixes: 0 };
-    chartMap[key].earnings += earnings;
-    chartMap[key].remixes += remixes;
+    chartMap[key].earnings += payoutValue;
+    chartMap[key].remixes += 1;
   });
   const earningsData = Object.values(chartMap).sort((a,b) => monthNames.indexOf(a.month.split(' ')[0]) - monthNames.indexOf(b.month.split(' ')[0]));
 
@@ -335,6 +351,61 @@ const CreatorEarnings = () => {
           </div>
         </div>
 
+        {/* Withdraw History */}
+        {withdrawHistory.length > 0 && (
+          <div className="bg-card border border-border rounded-2xl p-4 mb-6">
+            <h2 className="font-semibold mb-4 flex items-center gap-2">
+              <IndianRupee className="w-4 h-4 text-green-500" />
+              Withdraw History
+            </h2>
+            <div className="space-y-3">
+              {withdrawHistory.map((req) => {
+                const statusIcon = req.status === "approved" || req.status === "paid"
+                  ? <CheckCircle2 className="w-4 h-4 text-green-500" />
+                  : req.status === "rejected"
+                  ? <XCircle className="w-4 h-4 text-red-500" />
+                  : <Clock className="w-4 h-4 text-yellow-500" />;
+
+                const statusColor = req.status === "approved" || req.status === "paid"
+                  ? "text-green-500 bg-green-500/10"
+                  : req.status === "rejected"
+                  ? "text-red-500 bg-red-500/10"
+                  : "text-yellow-500 bg-yellow-500/10";
+
+                const date = req.created_at ? new Date(req.created_at) : null;
+                const dateStr = date
+                  ? date.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })
+                  : "";
+
+                return (
+                  <div key={req.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-xl">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-9 h-9 rounded-full flex items-center justify-center ${statusColor}`}>
+                        {statusIcon}
+                      </div>
+                      <div>
+                        <p className="font-semibold text-sm">₹{req.amount}</p>
+                        <p className="text-xs text-muted-foreground">{req.upi_id}</p>
+                        {req.reason && (
+                          <p className="text-xs text-red-400 mt-0.5 flex items-center gap-1">
+                            <AlertCircle className="w-3 h-3" /> {req.reason}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <span className={`text-xs font-medium px-2 py-1 rounded-full capitalize ${statusColor}`}>
+                        {req.status}
+                      </span>
+                      <p className="text-xs text-muted-foreground mt-1">{dateStr}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Prompt Performance */}
         <div className="bg-card border border-border rounded-2xl p-4">
           <h2 className="font-semibold mb-4">Prompt Performance</h2>
@@ -355,8 +426,9 @@ const CreatorEarnings = () => {
                   <div className="flex-1 min-w-0">
                     <h3 className="font-medium text-sm truncate">{p.style_name}</h3>
                     <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                      {p.remixes?.length || 0} remixes • ₹{(p.remixes?.length || 0) * REMIX_PAYOUT}
+                      {p.remixes?.length || 0} remixes • ₹{(p.remixes?.length || 0) * getPayoutPerRemix(p)}
                     </p>
+                    <p className="text-[10px] text-muted-foreground">₹{getPayoutPerRemix(p)} per remix</p>
                     {p.unit_id && <p className="text-[10px] text-muted-foreground mt-1">{p.unit_id}</p>}
                   </div>
                 </div>

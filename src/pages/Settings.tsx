@@ -269,7 +269,7 @@ const Settings = () => {
         ))}
 
         {/* Logout Button */}
-        <div className="px-2 py-6">
+        <div className="px-2 py-6 md:hidden">
           <button
             onClick={handleLogout}
             className="w-full flex items-center justify-center gap-2 py-3 bg-destructive/10 text-destructive hover:bg-destructive/20 rounded-xl font-medium transition-colors"
