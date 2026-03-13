@@ -17,6 +17,8 @@ import profileIcon from "@/assets/profileicon.png";
 import SuggestedUsers from "@/components/feed/SuggestedUsers";
 
 const API_BASE = "http://127.0.0.1:8000";
+const FEED_CACHE_KEY = "kirnagram:home-feed-cache";
+const FEED_SCROLL_KEY = "kirnagram:home-feed-scroll";
 
 type Post = {
   _id: string;
@@ -55,6 +57,16 @@ type Comment = {
   created_at?: string;
 };
 
+type FeedInlineAd = {
+  _id: string;
+  publisher_id: string;
+  ad_name: string;
+  business_name?: string;
+  description?: string;
+  photo_preview_url?: string;
+  video_preview_url?: string;
+};
+
 type RemixReturnState = {
   fromRemix?: boolean;
   focusPostId?: string;
@@ -78,10 +90,26 @@ const Index = () => {
   const [comments, setComments] = useState<Comment[]>([]);
   const [commentInput, setCommentInput] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [inlineAds, setInlineAds] = useState<FeedInlineAd[]>([]);
   const postRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const viewTimers = useRef<Record<string, number>>({});
   const viewedPostIds = useRef<Set<string>>(new Set());
   const remixRestoreAppliedRef = useRef(false);
+
+  const restoreCachedFeed = useCallback(() => {
+    const cached = sessionStorage.getItem(FEED_CACHE_KEY);
+    if (!cached) return false;
+
+    try {
+      const parsed = JSON.parse(cached) as { posts?: Post[] };
+      if (!Array.isArray(parsed.posts) || parsed.posts.length === 0) return false;
+      setPosts(parsed.posts);
+      setLoading(false);
+      return true;
+    } catch {
+      return false;
+    }
+  }, []);
 
   const shufflePosts = useCallback((items: Post[]) => {
     const copy = [...items];
@@ -144,13 +172,54 @@ const Index = () => {
   };
 
   useEffect(() => {
-    fetchFeed(false);
-  }, [fetchFeed]);
+    const restored = restoreCachedFeed();
+    if (!restored) {
+      fetchFeed(false);
+    }
+  }, [fetchFeed, restoreCachedFeed]);
+
+  useEffect(() => {
+    if (loading) return;
+    const savedScroll = sessionStorage.getItem(FEED_SCROLL_KEY);
+    if (!savedScroll) return;
+
+    const scrollY = Number(savedScroll);
+    if (Number.isNaN(scrollY)) {
+      sessionStorage.removeItem(FEED_SCROLL_KEY);
+      return;
+    }
+
+    requestAnimationFrame(() => {
+      window.scrollTo({ top: scrollY, behavior: "auto" });
+      sessionStorage.removeItem(FEED_SCROLL_KEY);
+    });
+  }, [loading, posts.length]);
+
+  useEffect(() => {
+    const loadInlineAds = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/ads/public/placement-ads?placement=feed_inline&limit=50`);
+        if (!res.ok) {
+          setInlineAds([]);
+          return;
+        }
+        const data = await res.json();
+        const items: FeedInlineAd[] = Array.isArray(data?.items) ? data.items : [];
+        setInlineAds(items);
+      } catch {
+        setInlineAds([]);
+      }
+    };
+
+    loadInlineAds();
+  }, []);
 
   useEffect(() => {
     const handleHomeRefresh = () => {
       setLoading(true);
       viewedPostIds.current.clear();
+      sessionStorage.removeItem(FEED_CACHE_KEY);
+      sessionStorage.removeItem(FEED_SCROLL_KEY);
       fetchFeed(true);
       window.scrollTo({ top: 0, behavior: "smooth" });
     };
@@ -265,6 +334,8 @@ const Index = () => {
 
   const openProfile = (id?: string) => {
     if (!id) return;
+    sessionStorage.setItem(FEED_SCROLL_KEY, String(window.scrollY));
+    sessionStorage.setItem(FEED_CACHE_KEY, JSON.stringify({ posts }));
     navigate(auth.currentUser?.uid === id ? "/profile" : `/user/${id}`);
   };
 
@@ -547,9 +618,70 @@ const Index = () => {
                     />
                   </div>
 
+                  {(index + 1) % 20 === 0 && inlineAds.length > 0 && (() => {
+                    const adSlotIndex = Math.floor((index + 1) / 20) - 1;
+                    const inlineAd = inlineAds[adSlotIndex % inlineAds.length];
+                    if (!inlineAd) return null;
+
+                    return (
+                      <div className="w-full flex justify-center">
+                        <div
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => navigate(`/publisher/business-profile/${inlineAd.publisher_id}`)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter" || event.key === " ") {
+                              event.preventDefault();
+                              navigate(`/publisher/business-profile/${inlineAd.publisher_id}`);
+                            }
+                          }}
+                          className="w-full max-w-[600px] rounded-2xl overflow-hidden shadow-lg border bg-card border-border cursor-pointer"
+                        >
+                          <div className="p-3 border-b border-border/70 flex items-center justify-between">
+                            <div className="min-w-0">
+                              <p className="text-[11px] uppercase tracking-[0.16em] text-primary font-semibold">Sponsored</p>
+                              <p className="text-sm font-semibold text-foreground truncate">
+                                {inlineAd.business_name || "Featured Business"}
+                              </p>
+                            </div>
+                            <span className="text-xs text-muted-foreground">Ad</span>
+                          </div>
+
+                          <div className="relative bg-black">
+                            {inlineAd.video_preview_url ? (
+                              <video
+                                src={inlineAd.video_preview_url}
+                                className="w-full object-cover"
+                                style={{ aspectRatio: "4 / 5" }}
+                                autoPlay
+                                muted
+                                loop
+                                playsInline
+                              />
+                            ) : (
+                              <img
+                                src={inlineAd.photo_preview_url || ""}
+                                alt={inlineAd.ad_name}
+                                className="w-full object-cover"
+                                style={{ aspectRatio: "4 / 5" }}
+                              />
+                            )}
+                          </div>
+
+                          <div className="p-4">
+                            <p className="text-base font-semibold text-foreground truncate">{inlineAd.ad_name}</p>
+                            {inlineAd.description && (
+                              <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{inlineAd.description}</p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
                   {index === 1 && (
                     <div key="suggested-users">
-                      <SuggestedUsers />
+                      <SuggestedUsers onOpenProfile={openProfile} />
                     </div>
                   )}
                 </React.Fragment>

@@ -116,6 +116,7 @@ export const publisherApi = {
     whatsapp?: string;
     website?: string;
     address?: string;
+    headquarters?: string;
   }) {
     const res = await fetch(`${API_BASE}/ads/business-profile`, {
       method: "PUT",

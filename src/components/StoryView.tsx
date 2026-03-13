@@ -629,7 +629,7 @@ const StoryView: React.FC = () => {
         <div className="text-center">
           <p className="text-xl mb-4">No stories to show</p>
           <button
-            onClick={() => navigate('/')}
+            onClick={() => navigate(-1)}
             className="bg-purple-600 hover:bg-purple-700 px-6 py-2 rounded-lg transition"
           >
             Go Back

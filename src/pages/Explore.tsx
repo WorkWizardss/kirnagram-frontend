@@ -58,6 +58,20 @@ type Post = {
   created_at?: string;
 };
 
+type DiscoverPlacementAd = {
+  _id: string;
+  publisher_id: string;
+  ad_name: string;
+  business_name?: string;
+  description?: string;
+  photo_preview_url?: string;
+  video_preview_url?: string;
+  metrics?: {
+    views?: number;
+    detail_clicks?: number;
+  };
+};
+
 
 type UserSummary = {
   firebase_uid: string;
@@ -112,6 +126,8 @@ const Explore = () => {
   const [postsLoaded, setPostsLoaded] = useState(false);
   const [userProfiles, setUserProfiles] = useState<Record<string, UserSummary>>({});
   const [topCreators, setTopCreators] = useState<UserSummary[]>([]);
+  const [spotlightAds, setSpotlightAds] = useState<DiscoverPlacementAd[]>([]);
+  const [spotlightIndex, setSpotlightIndex] = useState(0);
   const navigate = useNavigate();
   const location = useLocation();
   const appliedTagRef = useRef<string>("");
@@ -198,6 +214,45 @@ const Explore = () => {
     const intervalId = window.setInterval(() => fetchTopCreators(false), 60 * 1000);
     return () => window.clearInterval(intervalId);
   }, [currentUser]);
+
+  useEffect(() => {
+    const loadDiscoverSpotlightAds = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/ads/public/placement-ads?placement=discover_banner&limit=20`);
+        if (!res.ok) {
+          setSpotlightAds([]);
+          return;
+        }
+        const data = await res.json();
+        const items: DiscoverPlacementAd[] = Array.isArray(data?.items) ? data.items : [];
+        setSpotlightAds(items);
+        if (items.length > 1) {
+          setSpotlightIndex(Math.floor(Math.random() * items.length));
+        }
+      } catch {
+        setSpotlightAds([]);
+      }
+    };
+
+    loadDiscoverSpotlightAds();
+  }, []);
+
+  useEffect(() => {
+    if (spotlightAds.length <= 1) return;
+
+    const timerId = window.setTimeout(() => {
+      setSpotlightIndex((prev) => (prev + 1) % spotlightAds.length);
+    }, 6000);
+
+    return () => window.clearTimeout(timerId);
+  }, [spotlightAds.length, spotlightIndex]);
+
+  const activeSpotlightAd = spotlightAds.length > 0 ? spotlightAds[spotlightIndex % spotlightAds.length] : null;
+
+  useEffect(() => {
+    if (!activeSpotlightAd?._id) return;
+    fetch(`${API_BASE}/ads/campaigns/${activeSpotlightAd._id}/track-view`, { method: "POST" }).catch(() => undefined);
+  }, [activeSpotlightAd?._id]);
 
   // Filtering
   const remixPosts = useMemo(() => posts.filter((p) => p.is_prompt_post), [posts]);
@@ -517,9 +572,6 @@ const Explore = () => {
                           ? post.prompt_badge.toUpperCase()
                           : "Remix"}
                       </p>
-                      <p className="text-xs text-muted-foreground">
-                        {formatCount(post.likes?.length || 0)} likes
-                      </p>
                     </div>
                   </div>
                 );
@@ -544,13 +596,31 @@ const Explore = () => {
          <StoriesRow />
           </div>
         {/* Spotlight Section */}
-        <div className="relative mb-8 rounded-3xl overflow-hidden group cursor-pointer">
+        <div
+          className="relative mb-8 rounded-3xl overflow-hidden group cursor-pointer"
+          onClick={() => {
+            if (activeSpotlightAd?.publisher_id) {
+              navigate(`/publisher/business-profile/${activeSpotlightAd.publisher_id}`);
+            }
+          }}
+        >
           <div className="aspect-[16/9] sm:aspect-[21/9] md:aspect-[3/1] w-full">
-            <img 
-              src={spotlightArt.image} 
-              alt={spotlightArt.title}
-              className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-            />
+            {activeSpotlightAd?.video_preview_url && !activeSpotlightAd?.photo_preview_url ? (
+              <video
+                src={activeSpotlightAd.video_preview_url}
+                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                autoPlay
+                muted
+                loop
+                playsInline
+              />
+            ) : (
+              <img
+                src={activeSpotlightAd?.photo_preview_url || spotlightArt.image || heroBanner}
+                alt={activeSpotlightAd?.ad_name || spotlightArt.title}
+                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+              />
+            )}
           </div>
           
           {/* Spotlight Overlay */}
@@ -568,26 +638,24 @@ const Explore = () => {
           <div className="absolute bottom-0 left-0 right-0 p-3 sm:p-4 md:p-6">
             <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2 sm:gap-4">
               <div className="flex-1 min-w-0">
-                <p className="text-xs sm:text-sm text-primary font-medium mb-1 truncate">{spotlightArt.style}</p>
-                <h2 className="text-base sm:text-2xl font-display font-bold mb-2 line-clamp-2 sm:line-clamp-none">{spotlightArt.title}</h2>
+                <p className="text-xs sm:text-sm text-primary font-medium mb-1 truncate">
+                  {activeSpotlightAd ? "Sponsored Spotlight" : spotlightArt.style}
+                </p>
+                <h2 className="text-base sm:text-2xl font-display font-bold mb-2 line-clamp-2 sm:line-clamp-none">
+                  {activeSpotlightAd?.ad_name || spotlightArt.title}
+                </h2>
                 <div className="flex items-center gap-2 sm:gap-3">
                   <img 
-                    src={spotlightArt.creatorAvatar} 
-                    alt={spotlightArt.creator}
+                    src={activeSpotlightAd ? profileIcon : spotlightArt.creatorAvatar}
+                    alt={activeSpotlightAd?.business_name || spotlightArt.creator}
                     className="w-7 sm:w-8 h-7 sm:h-8 rounded-full border-2 border-primary flex-shrink-0"
                   />
-                  <span className="text-xs sm:text-sm font-medium truncate">{spotlightArt.creator}</span>
+                  <span className="text-xs sm:text-sm font-medium truncate">
+                    {activeSpotlightAd?.business_name || spotlightArt.creator}
+                  </span>
                 </div>
               </div>
               <div className="flex items-center gap-2 sm:gap-4 text-xs sm:text-sm flex-shrink-0">
-                <div className="flex items-center gap-1 text-muted-foreground">
-                  <Eye className="w-4 h-4 flex-shrink-0" />
-                  <span className="whitespace-nowrap">{spotlightArt.views}</span>
-                </div>
-                <div className="flex items-center gap-1 text-muted-foreground">
-                  <Heart className="w-4 h-4 flex-shrink-0" />
-                  <span className="whitespace-nowrap">{spotlightArt.likes}</span>
-                </div>
               </div>
             </div>
           </div>
@@ -625,7 +693,6 @@ const Explore = () => {
                   <div className="absolute inset-0 bg-gradient-to-t from-background/95 via-background/40 to-transparent" />
                   <div className="absolute bottom-0 left-0 right-0 p-2.5 sm:p-3">
                     <p className="font-semibold text-sm truncate">{post.prompt_badge || "Remix"}</p>
-                    <p className="text-xs text-muted-foreground line-clamp-1">{formatCount(post.likes?.length || 0)} likes</p>
                   </div>
                   <div className="absolute inset-0 rounded-2xl ring-2 ring-primary/0 group-hover:ring-primary/50 transition-all duration-300" />
                 </div>
@@ -735,10 +802,7 @@ const Explore = () => {
                     <div className="absolute bottom-0 left-0 right-0 p-3 translate-y-full group-hover:translate-y-0 transition-transform duration-300">
                       <p className="text-xs text-primary font-medium">{post.caption}</p>
                       <p className="text-sm font-semibold truncate">{userProfiles[post.user_id]?.username || "User"}</p>
-                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1">
-                        <Heart className="w-3.5 h-3.5" />
-                        <span>{formatCount(post.likes?.length || 0)}</span>
-                      </div>
+
                     </div>
                     <div className="absolute inset-0 rounded-2xl ring-2 ring-primary/0 group-hover:ring-primary/50 transition-all duration-300" />
                   </div>

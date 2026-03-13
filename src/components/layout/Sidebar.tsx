@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Home, Compass, Plus, Sparkles, User, Menu, X, UserPlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { auth } from "@/firebase";
+import { publisherApi } from "@/lib/publisherApi";
 import avatar2 from "@/assets/avatar-2.jpg";
 import kirnagramLogo from "@/assets/kirnagram@2.png";
 import {
@@ -14,6 +15,7 @@ interface NavItem {
   path: string;
   isCreate?: boolean;
   isPublisher?: boolean;
+  isAdsManagement?: boolean;
 }
 
 const navItems: NavItem[] = [
@@ -22,7 +24,7 @@ const navItems: NavItem[] = [
   { icon: Plus, label: "Add Post", path: "/create", isCreate: true },
   { icon: Sparkles, label: "AI Creator", path: "/ai-creator" },
   { icon: UserPlus, label: "Become a Publisher", path: "/become-publisher", isPublisher: true },
-  { icon: Sparkles, label: "Ads Management", path: "/publisher/dashboard" },
+  { icon: Sparkles, label: "Ads Management", path: "/publisher/dashboard", isAdsManagement: true },
   { icon: User, label: "Profile", path: "/profile" },
 ];
 
@@ -35,6 +37,30 @@ export function Sidebar({ fromProfile }: SidebarProps = {}) {
   const location = useLocation();
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
+  const [isPublisher, setIsPublisher] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadPublisherAccess = async () => {
+      try {
+        const access = await publisherApi.getAccess();
+        if (mounted) {
+          setIsPublisher(Boolean(access?.is_publisher));
+        }
+      } catch {
+        if (mounted) {
+          setIsPublisher(false);
+        }
+      }
+    };
+
+    void loadPublisherAccess();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   // Helper for active state
   const isActive = (path: string) => {
@@ -76,7 +102,17 @@ export function Sidebar({ fromProfile }: SidebarProps = {}) {
 
       {/* Middle: Navigation links (centered vertically) */}
       <nav className="flex-1 flex flex-col justify-center gap-1">
-        {navItems.map((item) => (
+        {navItems
+          .filter((item) => {
+            if (item.isPublisher) {
+              return !isPublisher;
+            }
+            if (item.isAdsManagement) {
+              return isPublisher;
+            }
+            return true;
+          })
+          .map((item) => (
           <Link
             key={item.path}
             to={item.path}

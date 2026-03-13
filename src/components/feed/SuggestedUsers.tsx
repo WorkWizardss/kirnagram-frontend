@@ -15,7 +15,11 @@ type SuggestedUser = {
   gender?: string;
 };
 
-const SuggestedUsers = () => {
+type SuggestedUsersProps = {
+  onOpenProfile?: (id: string) => void;
+};
+
+const SuggestedUsers = ({ onOpenProfile }: SuggestedUsersProps) => {
   const [users, setUsers] = useState<SuggestedUser[]>([]);
   const [loadingUser, setLoadingUser] = useState<string | null>(null);
   const navigate = useNavigate();
@@ -120,7 +124,13 @@ const SuggestedUsers = () => {
               src={getAvatar(user)}
               alt={user.username || "User"}
               className="w-24 h-24 rounded-full object-cover mb-3 cursor-pointer"
-              onClick={() => navigate(`/user/${user.firebase_uid}`)}
+              onClick={() => {
+                if (onOpenProfile) {
+                  onOpenProfile(user.firebase_uid);
+                  return;
+                }
+                navigate(`/user/${user.firebase_uid}`);
+              }}
             />
 
             <p className="font-semibold text-sm text-center">

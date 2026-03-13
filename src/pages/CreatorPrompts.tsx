@@ -1,6 +1,6 @@
 import { MainLayout } from "@/components/layout/MainLayout";
 import { ArrowLeft, Heart, MessageCircle, Eye, TrendingUp, ChevronRight, Search, Filter } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import { auth } from "@/firebase";
@@ -28,6 +28,7 @@ type Prompt = {
 
 const CreatorPrompts = () => {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [prompts, setPrompts] = useState<Prompt[]>([]);
   const [selectedPrompt, setSelectedPrompt] = useState<Prompt | null>(null);
   const [filter, setFilter] = useState<"all" | "approved" | "pending" | "modify" | "rejected">("all");
@@ -253,12 +254,12 @@ const CreatorPrompts = () => {
       <div className="max-w-4xl mx-auto px-3 md:px-0 pb-24 md:pb-8 overflow-x-hidden">
         {/* Header */}
         <div className="flex items-center gap-3 mb-6">
-          <Link 
-            to="/ai-creator" 
+          <button
+            onClick={() => navigate(-1)}
             className="p-2 rounded-xl hover:bg-muted/50 transition-colors"
           >
             <ArrowLeft className="w-5 h-5" />
-          </Link>
+          </button>
           <div className="flex-1">
             <h1 className="text-xl md:text-2xl font-display font-bold">My Prompts</h1>
             <p className="text-sm text-muted-foreground">{prompts.length} prompts created</p>

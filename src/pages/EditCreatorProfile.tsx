@@ -1,11 +1,12 @@
 import { MainLayout } from "@/components/layout/MainLayout";
 import { ArrowLeft, User, FileText, Instagram, Youtube, Facebook, Camera, Save, Link as LinkIcon } from "lucide-react";
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import avatar2 from "@/assets/avatar-2.jpg";
 import { auth } from "@/firebase";
 
 const EditCreatorProfile = () => {
+  const navigate = useNavigate();
   const [avatar, setAvatar] = useState<string>(avatar2);
   const [saved, setSaved] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -128,12 +129,12 @@ const EditCreatorProfile = () => {
       <div className="max-w-2xl mx-auto px-3 md:px-0 pb-24 md:pb-8 overflow-x-hidden">
         {/* Header */}
         <div className="flex items-center gap-3 mb-6">
-          <Link 
-            to="/ai-creator" 
+          <button
+            onClick={() => navigate(-1)}
             className="p-2 rounded-xl hover:bg-muted/50 transition-colors"
           >
             <ArrowLeft className="w-5 h-5" />
-          </Link>
+          </button>
           <div className="flex-1">
             <h1 className="text-xl md:text-2xl font-display font-bold">Edit Creator Profile</h1>
             <p className="text-sm text-muted-foreground">Update your creator information</p>

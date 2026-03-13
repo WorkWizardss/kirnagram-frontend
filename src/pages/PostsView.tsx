@@ -764,12 +764,6 @@ useEffect(() => {
                             onClick={() => handleLike(post._id)}
                           >
                             <Heart className="w-5 h-5" fill={isLiked ? "currentColor" : "none"} />
-                            <span onClick={(event) => {
-                              event.stopPropagation();
-                              openLikes(post._id);
-                            }}>
-                              {Array.isArray(post.likes) ? post.likes.length : 0}
-                            </span>
                           </button>
                           <button
                             className="flex items-center gap-2 text-foreground"
@@ -778,20 +772,10 @@ useEffect(() => {
                             <MessageCircle className="w-5 h-5" />
                             <span>{Array.isArray(post.comments) ? post.comments.length : 0}</span>
                           </button>
-                          {currentUserId === post.user_id ? (
-                            <button
-                              className="flex items-center gap-1 text-foreground hover:text-primary transition-colors"
-                              onClick={() => openViews(post._id)}
-                            >
-                              <Eye className="w-5 h-5" />
-                              {Array.isArray(post.views) ? post.views.length : 0}
-                            </button>
-                          ) : (
-                            <span className="flex items-center gap-1 text-foreground">
-                              <Eye className="w-5 h-5" />
-                              {Array.isArray(post.views) ? post.views.length : 0}
-                            </span>
-                          )}
+                          <span className="flex items-center gap-1 text-foreground">
+                            <Eye className="w-5 h-5" />
+                            {Array.isArray(post.views) ? post.views.length : 0}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -802,72 +786,6 @@ useEffect(() => {
           </div>
         )}
       </div>
-      <Dialog open={showLikes} onOpenChange={setShowLikes}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Likes</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3 max-h-[50vh] overflow-y-auto">
-            {likeUsers.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No likes yet.</p>
-            ) : (
-              likeUsers.map((user) => {
-                const userId = user.firebase_uid || user.user_id;
-                return (
-                  <button
-                    key={userId}
-                    className="flex w-full items-center gap-3 text-left"
-                    onClick={() => openProfile(userId)}
-                  >
-                    <img
-                      src={getUserAvatar(user)}
-                      alt={user.username || "User"}
-                      className="w-10 h-10 rounded-full object-cover"
-                    />
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium truncate">{user.username || user.full_name || "User"}</p>
-                    </div>
-                  </button>
-                );
-              })
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={showViews} onOpenChange={setShowViews}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Views</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3 max-h-[50vh] overflow-y-auto">
-            {viewUsers.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No views yet.</p>
-            ) : (
-              viewUsers.map((user) => {
-                const uid = user.firebase_uid || user.user_id;
-                return (
-                  <button
-                    key={uid}
-                    className="flex w-full items-center gap-3 text-left"
-                    onClick={() => openProfile(uid)}
-                  >
-                    <img
-                      src={getUserAvatar(user)}
-                      alt={user.username || "User"}
-                      className="w-10 h-10 rounded-full object-cover"
-                    />
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium truncate">{user.username || user.full_name || "User"}</p>
-                    </div>
-                  </button>
-                );
-              })
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
-
       <Dialog open={showComments} onOpenChange={setShowComments}>
         <DialogContent className="max-w-md">
           <DialogHeader>

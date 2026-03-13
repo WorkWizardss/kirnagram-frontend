@@ -33,7 +33,7 @@ const buyCredits = async (amount: number) => {
   const order = await res.json();
 
   const options = {
-    key: "rzp_live_SFjXr37mdMKsgF",
+    key: "rzp_test_SFjXr37mdMKsgF",
     amount: order.amount,
     currency: "INR",
     name: "Kirnagram",
@@ -80,10 +80,24 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Coins, Gift, Sparkles, Clock, ArrowUpRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { claimDailyCredits, CreditsSummary, fetchCreditsSummary } from "@/lib/creditsApi";
 import { toast } from "@/components/ui/use-toast";
+import { useNavigate } from "react-router-dom";
+
+const API_BASE = "http://127.0.0.1:8000";
+
+type SponsoredAd = {
+  _id: string;
+  publisher_id: string;
+  ad_name: string;
+  business_name?: string;
+  description?: string;
+  photo_preview_url?: string;
+  video_preview_url?: string;
+};
 
 const formatDateTime = (value?: string | null) => {
   if (!value) return "—";
@@ -99,9 +113,14 @@ const formatAmount = (value: number) => `${value.toLocaleString()}`;
 const userId = "USER_ID_PLACEHOLDER";
 
 export function CreditsWalletPanel({ variant = "page" }: { variant?: "page" | "modal" }) {
+  const navigate = useNavigate();
   const [summary, setSummary] = useState<CreditsSummary | null>(null);
   const [loading, setLoading] = useState(false);
   const [claiming, setClaiming] = useState(false);
+  const [claimAds, setClaimAds] = useState<SponsoredAd[]>([]);
+  const [claimAdOpen, setClaimAdOpen] = useState(false);
+  const [claimAdIndex, setClaimAdIndex] = useState(0);
+  const [claimMediaPhase, setClaimMediaPhase] = useState<"image" | "video">("image");
 
   const loadSummary = useCallback(async () => {
     setLoading(true);
@@ -119,7 +138,26 @@ export function CreditsWalletPanel({ variant = "page" }: { variant?: "page" | "m
     }
   }, []);
 
+  const canClaim = Boolean(
+    summary?.daily_claim?.enabled && (summary?.daily_claim?.remaining ?? 0) > 0,
+  );
+
   const handleClaim = useCallback(async () => {
+    if (!canClaim || claiming) return;
+    if (claimAds.length === 0) {
+      toast({
+        title: "Daily claim",
+        description: "No sponsored ad is available right now. Try again shortly.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setClaimAdIndex(Math.floor(Math.random() * claimAds.length));
+    setClaimMediaPhase("image");
+    setClaimAdOpen(true);
+  }, [canClaim, claimAds, claiming]);
+
+  const completeClaim = useCallback(async () => {
     setClaiming(true);
     try {
       const result = await claimDailyCredits();
@@ -128,12 +166,14 @@ export function CreditsWalletPanel({ variant = "page" }: { variant?: "page" | "m
         description: `You earned ${result.amount} credits today`,
       });
       await loadSummary();
+      setClaimAdOpen(false);
     } catch (error) {
       toast({
         title: "Daily claim",
         description: error instanceof Error ? error.message : "Daily claim failed",
         variant: "destructive",
       });
+      setClaimAdOpen(false);
     } finally {
       setClaiming(false);
     }
@@ -141,13 +181,51 @@ export function CreditsWalletPanel({ variant = "page" }: { variant?: "page" | "m
 
   const paidPlans = useMemo(() => summary?.paid_plans ?? [], [summary]);
 
-  const canClaim = Boolean(
-    summary?.daily_claim?.enabled && (summary?.daily_claim?.remaining ?? 0) > 0,
-  );
-
   useEffect(() => {
     loadSummary();
   }, [loadSummary]);
+
+  useEffect(() => {
+    const loadClaimAds = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/ads/public/placement-ads?placement=claims_banner&limit=20`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const items: SponsoredAd[] = Array.isArray(data?.items) ? data.items : [];
+        setClaimAds(items);
+      } catch {
+        setClaimAds([]);
+      }
+    };
+
+    loadClaimAds();
+  }, []);
+
+  const activeClaimAd = claimAds[claimAdIndex] || null;
+
+  useEffect(() => {
+    if (!claimAdOpen || !activeClaimAd) return;
+    setClaimMediaPhase("image");
+  }, [claimAdOpen, activeClaimAd?._id]);
+
+  useEffect(() => {
+    if (!claimAdOpen || !activeClaimAd) return;
+
+    const hasImage = Boolean(activeClaimAd.photo_preview_url);
+    const hasVideo = Boolean(activeClaimAd.video_preview_url);
+
+    let timerId: number;
+    if (hasImage && hasVideo && claimMediaPhase === "image") {
+      timerId = window.setTimeout(() => setClaimMediaPhase("video"), 2000);
+    } else {
+      const duration = hasImage && hasVideo ? 4000 : 6000;
+      timerId = window.setTimeout(() => {
+        completeClaim();
+      }, duration);
+    }
+
+    return () => window.clearTimeout(timerId);
+  }, [claimAdOpen, activeClaimAd, claimMediaPhase, completeClaim]);
 
   return (
     <div className={cn("space-y-6", variant === "modal" && "pt-2")}>
@@ -207,6 +285,66 @@ export function CreditsWalletPanel({ variant = "page" }: { variant?: "page" | "m
           </p>
         )}
       </Card>
+
+      <Dialog open={claimAdOpen} onOpenChange={(open) => {
+        if (!claiming) {
+          setClaimAdOpen(open);
+        }
+      }}>
+        <DialogContent className="max-w-3xl p-0 overflow-hidden bg-black border-border" showClose={!claiming}>
+          <div className="relative h-[360px] md:h-[420px]">
+            {activeClaimAd ? (
+              <>
+                {activeClaimAd.video_preview_url && (!activeClaimAd.photo_preview_url || claimMediaPhase === "video") ? (
+                  <video
+                    key={`${activeClaimAd._id}-claim-video`}
+                    src={activeClaimAd.video_preview_url}
+                    className="w-full h-full object-cover"
+                    autoPlay
+                    muted
+                    playsInline
+                  />
+                ) : (
+                  <img
+                    src={activeClaimAd.photo_preview_url || ""}
+                    alt={activeClaimAd.ad_name}
+                    className="w-full h-full object-cover"
+                  />
+                )}
+                <div className="absolute inset-x-0 bottom-0 p-5 md:p-6 text-white">
+                  <DialogHeader className="text-left space-y-2">
+                    <DialogTitle className="text-2xl md:text-3xl font-display font-bold text-white">
+                      {activeClaimAd.business_name || "Sponsored Brand"}
+                    </DialogTitle>
+                  </DialogHeader>
+                  <p className="text-lg md:text-2xl font-semibold mt-2">{activeClaimAd.ad_name}</p>
+                  {activeClaimAd.description && (
+                    <p className="text-sm md:text-base mt-2 max-w-xl text-white/90">{activeClaimAd.description}</p>
+                  )}
+                  <div className="flex items-center justify-between gap-3 mt-4">
+                    <p className="text-xs md:text-sm text-white/85">
+                      {activeClaimAd.photo_preview_url && activeClaimAd.video_preview_url
+                        ? claimMediaPhase === "image"
+                          ? "Image preview: 2 seconds"
+                          : "Video preview: 4 seconds"
+                        : "Watching sponsored ad to unlock daily credits"}
+                    </p>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={() => navigate(`/publisher/business-profile/${activeClaimAd.publisher_id}`)}
+                    >
+                      Open Business Profile
+                    </Button>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="h-full flex items-center justify-center text-white/80">Loading sponsored ad...</div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card className="glass-card border border-border/60 p-5">

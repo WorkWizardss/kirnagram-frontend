@@ -335,20 +335,12 @@ function getUserAvatar(user?: { image_name?: string; user_image?: string; gender
         <div className="px-4 pt-3 pb-4 flex items-center gap-6 text-sm">
           <button
             className={cn(
-              "flex items-center gap-1.5 min-w-[56px]",
+              "flex items-center gap-1.5",
               isLiked ? "text-red-500" : "text-zinc-700 dark:text-foreground"
             )}
             onClick={onLike}
           >
             <Heart className="w-5 h-5" fill={isLiked ? "currentColor" : "none"} />
-            <span
-              onClick={(event) => {
-                event.stopPropagation();
-                onOpenLikes?.();
-              }}
-            >
-              {likes}
-            </span>
           </button>
           <button
             className="flex items-center gap-1.5 min-w-[56px] text-zinc-700 dark:text-foreground"
@@ -357,13 +349,10 @@ function getUserAvatar(user?: { image_name?: string; user_image?: string; gender
             <MessageCircle className="w-5 h-5" />
             <span>{comments}</span>
           </button>
-          <button
-            className="flex items-center gap-1.5 min-w-[56px] text-zinc-700 dark:text-foreground"
-            onClick={onOpenViews}
-          >
+          <span className="flex items-center gap-1.5 min-w-[56px] text-zinc-700 dark:text-foreground">
             <Eye className="w-5 h-5" />
             <span>{formatCount(views)}</span>
-          </button>
+          </span>
         </div>
         {caption && (
           <div className="px-4 pb-4">

@@ -522,10 +522,6 @@ const Profile = () => {
                   {/* Overlay Stats */}
                   <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4 text-white text-xs sm:text-sm">
                     <span className="flex items-center gap-1">
-                      <Heart className="w-4 h-4" />
-                      {post.likes?.length ?? 0}
-                    </span>
-                    <span className="flex items-center gap-1">
                       <MessageCircle className="w-4 h-4" />
                       {post.comments?.length ?? 0}
                     </span>
@@ -560,10 +556,6 @@ const Profile = () => {
                     className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                   />
                   <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4 text-white text-xs sm:text-sm">
-                    <span className="flex items-center gap-1">
-                      <Heart className="w-4 h-4" />
-                      {post.likes?.length ?? 0}
-                    </span>
                     <span className="flex items-center gap-1">
                       <MessageCircle className="w-4 h-4" />
                       {post.comments?.length ?? 0}

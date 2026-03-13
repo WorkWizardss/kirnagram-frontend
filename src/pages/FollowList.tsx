@@ -240,12 +240,7 @@ const FollowList = () => {
   };
 
   const handleBackClick = () => {
-    // Smart back: go to /profile if viewing own list, otherwise go to /user/{userId}
-    if (currentUser?.uid === userId) {
-      navigate('/profile');
-    } else {
-      navigate(`/user/${userId}`);
-    }
+    navigate(-1);
   };
 
   return (

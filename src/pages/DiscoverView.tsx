@@ -333,9 +333,6 @@ const DiscoverView: React.FC = () => {
                         : "text-white"
                     }`}
                   />
-                  <p className="text-white text-xs text-center mt-1">
-                    {post.likes?.length || 0}
-                  </p>
                 </button>
 
                 <button onClick={() => openComments(post._id)}>

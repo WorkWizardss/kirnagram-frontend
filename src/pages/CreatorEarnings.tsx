@@ -1,6 +1,6 @@
 import { MainLayout } from "@/components/layout/MainLayout";
 import { ArrowLeft, TrendingUp, Users, IndianRupee, Eye, ChevronDown, Clock, CheckCircle2, XCircle, AlertCircle } from "lucide-react";
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { auth } from "@/firebase";
 import { useToast } from "@/hooks/use-toast";
@@ -16,6 +16,7 @@ const getPayoutPerRemix = (prompt: any) => Number(prompt?.payout_per_remix ?? 1)
 const CreatorEarnings = () => {
   const [timeRange, setTimeRange] = useState("6M");
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [prompts, setPrompts] = useState<any[]>([]);
   const [remixes, setRemixes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -123,12 +124,12 @@ const CreatorEarnings = () => {
       <div className="max-w-4xl mx-auto px-3 md:px-0 pb-24 md:pb-8 overflow-x-hidden">
         {/* Header */}
         <div className="flex items-center gap-3 mb-6">
-          <Link 
-            to="/ai-creator" 
+          <button
+            onClick={() => navigate(-1)}
             className="p-2 rounded-xl hover:bg-muted/50 transition-colors"
           >
             <ArrowLeft className="w-5 h-5" />
-          </Link>
+          </button>
           <div>
             <h1 className="text-xl md:text-2xl font-display font-bold">Earnings</h1>
             <p className="text-sm text-muted-foreground">Track your creator revenue</p>
